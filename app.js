@@ -174,8 +174,10 @@ function handleFilters() {
     const batch = document.getElementById('filter-batch').value;
     const band = document.getElementById('filter-band').value;
 
+    const normalizeDept = value => String(value || '').trim().toUpperCase();
+
     const filtered = MOCK_MEMBERS.filter(m => {
-        const matchDept = !dept || m.dept === dept;
+        const matchDept = !dept || normalizeDept(m.dept) === normalizeDept(dept);
         const matchBatch = !batch || m.batch === batch;
         const matchBand = !band || m.band === band;
         return matchDept && matchBatch && matchBand;
