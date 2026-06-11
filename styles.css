@@ -19,7 +19,7 @@
     --gold-400: #E8B820;
     --gold-300: #F0CC55;
     --gold-100: #FDF3C8;
-    --surface: #F6F8FC;
+    --surface: #F4F7FB;
     --card: #FFFFFF;
     --border: #E4ECF5;
     --text-primary: #0A1628;
@@ -682,6 +682,17 @@ body {
 .dept-card:hover {
     border-color: var(--blue-300);
     box-shadow: 0 2px 12px rgba(30, 86, 160, .08);
+}
+
+.dept-icon-wrap {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: #EAF2FF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
 /* ── TABS ───────────────────────────────────────────────────── */

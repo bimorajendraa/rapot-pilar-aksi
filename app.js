@@ -200,8 +200,8 @@ function renderDeptCards() {
     const grid = document.getElementById('dept-cards-grid');
     grid.innerHTML = MOCK_DEPTS.map(d => `
         <div class="dept-card">
-            <div style="width:42px;height:42px;border-radius:10px;background:${d.color}18;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                <i class="fas fa-layer-group" style="color:${d.color};font-size:18px;"></i>
+            <div class="dept-icon-wrap">
+                <img src="Logo Departemen/${d.name}.png" alt="${d.name}" style="width:26px;height:26px;object-fit:contain;">
             </div>
             <div style="flex:1;">
                 <div style="font-size:13px;font-weight:700;color:var(--text-primary);">${d.name}</div>
