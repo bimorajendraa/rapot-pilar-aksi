@@ -514,6 +514,16 @@ body {
     text-align: center;
 }
 
+.data-table td:first-child {
+    text-align: left;
+}
+
+.members-table th:first-child,
+.members-table td:first-child {
+    width: 320px;
+    text-align: left;
+}
+
 .data-table tr:last-child td {
     border-bottom: none;
 }
@@ -532,7 +542,27 @@ body {
     font-size: 12px;
     font-weight: 700;
     flex-shrink: 0;
-    margin: 0 auto;
+    margin: 0;
+}
+
+.member-cell {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    justify-content: flex-start;
+    width: 100%;
+    min-width: 0;
+}
+
+.member-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 13px;
+    text-align: left;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* ── BADGES ─────────────────────────────────────────────────── */
