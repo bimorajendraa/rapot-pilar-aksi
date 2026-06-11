@@ -126,14 +126,23 @@ function renderDeptRankings() {
 }
 
 // ── RENDER: MEMBERS TABLE ────────────────────────────────────
-function renderMembersTable() {
+function renderMembersTable(filteredData = MOCK_MEMBERS) {
     const tbody = document.getElementById('members-table-body');
-    tbody.innerHTML = MOCK_MEMBERS.map((m, i) => `
+    const countEl = document.getElementById('members-count');
+    
+    if (countEl) countEl.textContent = `${filteredData.length} anggota`;
+    
+    if (filteredData.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:24px;">Data tidak ditemukan</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filteredData.map((m, i) => `
         <tr>
             <td>
-                <div style="display:flex;align-items:center;gap:10px;">
+                <div class="member-cell">
                     <div class="member-avatar" style="background:${getAvatarColor(i)};color:white;">${getInitials(m.name)}</div>
-                    <div><div style="font-weight:500;color:var(--text-primary);font-size:13px;">${m.name}</div></div>
+                    <span class="member-name">${m.name}</span>
                 </div>
             </td>
             <td style="font-family:monospace;font-size:12px;">${m.nrp}</td>
@@ -147,7 +156,7 @@ function renderMembersTable() {
             : '<span style="font-size:12px;color:var(--text-muted);">Pending</span>'}
             </td>
             <td>
-                <div style="display:flex;gap:6px;">
+                <div style="display:flex;gap:6px;justify-content:center;">
                     <button class="topbar-action btn-outline" style="padding:4px 10px;font-size:11px;"><i class="fas fa-edit"></i></button>
                     <button class="topbar-action btn-outline" style="padding:4px 10px;font-size:11px;"
                         onclick="showPage('report-preview', document.querySelectorAll('.nav-item')[4])">
@@ -157,6 +166,24 @@ function renderMembersTable() {
             </td>
         </tr>
     `).join('');
+}
+
+// ── FILTER LOGIC ──────────────────────────────────────────────
+function handleFilters() {
+    const dept = document.getElementById('filter-dept').value;
+    const batch = document.getElementById('filter-batch').value;
+    const band = document.getElementById('filter-band').value;
+
+    const normalizeDept = value => String(value || '').trim().toUpperCase();
+
+    const filtered = MOCK_MEMBERS.filter(m => {
+        const matchDept = !dept || normalizeDept(m.dept) === normalizeDept(dept);
+        const matchBatch = !batch || m.batch === batch;
+        const matchBand = !band || m.band === band;
+        return matchDept && matchBatch && matchBand;
+    });
+
+    renderMembersTable(filtered);
 }
 
 // Update sidebar badge count
@@ -379,4 +406,13 @@ document.addEventListener('DOMContentLoaded', () => {
     renderMembersTable();
     renderDeptCards();
     setTimeout(initDashboardCharts, 100);
+
+    // Event listeners for filters
+    const filterDept = document.getElementById('filter-dept');
+    const filterBatch = document.getElementById('filter-batch');
+    const filterBand = document.getElementById('filter-band');
+
+    if (filterDept) filterDept.addEventListener('change', handleFilters);
+    if (filterBatch) filterBatch.addEventListener('change', handleFilters);
+    if (filterBand) filterBand.addEventListener('change', handleFilters);
 });
