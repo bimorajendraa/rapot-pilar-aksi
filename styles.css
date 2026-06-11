@@ -501,7 +501,7 @@ body {
     color: var(--text-muted);
     font-weight: 600;
     padding: 10px 16px;
-    text-align: left;
+    text-align: center;
     border-bottom: 1px solid var(--border);
 }
 
@@ -511,6 +511,7 @@ body {
     font-size: 13px;
     color: var(--text-secondary);
     vertical-align: middle;
+    text-align: center;
 }
 
 .data-table tr:last-child td {
@@ -531,6 +532,7 @@ body {
     font-size: 12px;
     font-weight: 700;
     flex-shrink: 0;
+    margin: 0 auto;
 }
 
 /* ── BADGES ─────────────────────────────────────────────────── */

@@ -131,10 +131,8 @@ function renderMembersTable() {
     tbody.innerHTML = MOCK_MEMBERS.map((m, i) => `
         <tr>
             <td>
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <div class="member-avatar" style="background:${getAvatarColor(i)};color:white;">${getInitials(m.name)}</div>
-                    <div><div style="font-weight:500;color:var(--text-primary);font-size:13px;">${m.name}</div></div>
-                </div>
+                <div class="member-avatar" style="background:${getAvatarColor(i)};color:white;">${getInitials(m.name)}</div>
+                <div style="font-weight:500;color:var(--text-primary);font-size:13px;margin-top:4px;">${m.name}</div>
             </td>
             <td style="font-family:monospace;font-size:12px;">${m.nrp}</td>
             <td>${m.dept}</td>
@@ -147,7 +145,7 @@ function renderMembersTable() {
             : '<span style="font-size:12px;color:var(--text-muted);">Pending</span>'}
             </td>
             <td>
-                <div style="display:flex;gap:6px;">
+                <div style="display:flex;gap:6px;justify-content:center;">
                     <button class="topbar-action btn-outline" style="padding:4px 10px;font-size:11px;"><i class="fas fa-edit"></i></button>
                     <button class="topbar-action btn-outline" style="padding:4px 10px;font-size:11px;"
                         onclick="showPage('report-preview', document.querySelectorAll('.nav-item')[4])">
