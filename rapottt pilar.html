@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HMSI PILAR AKSI — Performance Report System</title>
+
+    <!-- External libs -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <!-- Project styles -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <!-- ═══════════════════════ SIDEBAR ═══════════════════════ -->
+    <aside id="sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-badge">
+                <div class="logo-icon">H</div>
+                <div class="logo-text">
+                    <div class="logo-title">HMSI PILAR AKSI</div>
+                    <div class="logo-sub">Performance System</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="cabinet-selector">
+            <div>
+                <div class="cs-label">Cabinet Period</div>
+                <div class="cs-value">Pilar Aksi 2026/2027</div>
+            </div>
+            <i class="fas fa-chevron-down"></i>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="nav-section-label">Overview</div>
+            <button class="nav-item active" onclick="showPage('dashboard', this)">
+                <i class="fas fa-chart-pie"></i> Dashboard
+            </button>
+
+            <div class="nav-section-label">Data Management</div>
+            <button class="nav-item" onclick="showPage('members', this)">
+                <i class="fas fa-users"></i> Functional Members
+                <span class="nav-badge">156</span>
+            </button>
+            <button class="nav-item" onclick="showPage('departments', this)">
+                <i class="fas fa-sitemap"></i> Departments
+            </button>
+            <button class="nav-item" onclick="showPage('assessment', this)">
+                <i class="fas fa-clipboard-check"></i> Assessment Input
+            </button>
+
+            <div class="nav-section-label">Reports</div>
+            <button class="nav-item" onclick="showPage('report-preview', this)">
+                <i class="fas fa-file-alt"></i> Report Cards
+            </button>
+            <button class="nav-item" onclick="showPage('analytics', this)">
+                <i class="fas fa-chart-bar"></i> Analytics
+            </button>
+
+            <div class="nav-section-label">Settings</div>
+            <button class="nav-item" onclick="showPage('settings', this)">
+                <i class="fas fa-cog"></i> Settings
+            </button>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-avatar">SA</div>
+            <div>
+                <div class="user-name">Super Admin</div>
+                <div class="user-role">Administrator</div>
+            </div>
+            <i class="fas fa-sign-out-alt"
+                style="margin-left:auto;color:rgba(255,255,255,.3);font-size:14px;cursor:pointer;"></i>
+        </div>
+    </aside>
+
+    <!-- ═══════════════════════ MAIN ═══════════════════════ -->
+    <main id="main">
+
+        <!-- TOPBAR -->
+        <header class="topbar">
+            <div class="topbar-title" id="topbar-title">Dashboard</div>
+            <div class="topbar-search">
+                <i class="fas fa-search"></i>
+                <input type="text" placeholder="Cari anggota, departemen...">
+            </div>
+            <button class="topbar-action btn-outline">
+                <i class="fas fa-download"></i> Export
+            </button>
+            <button class="topbar-action btn-primary"
+                onclick="showPage('report-preview', document.querySelectorAll('.nav-item')[4])">
+                <i class="fas fa-file-pdf"></i> Generate PDF
+            </button>
+        </header>
+
+        <div class="page-content">
+
+            <!-- ═══════════ PAGE: DASHBOARD ═══════════ -->
+            <div id="page-dashboard" class="page active">
+
+                <div class="stat-grid">
+                    <div class="stat-card blue">
+                        <div class="stat-icon blue"><i class="fas fa-users"></i></div>
+                        <div class="stat-label">Total Members</div>
+                        <div class="stat-value">156</div>
+                        <div class="stat-change neutral">Kabinet Pilar Aksi</div>
+                    </div>
+                    <div class="stat-card gold">
+                        <div class="stat-icon gold"><i class="fas fa-star"></i></div>
+                        <div class="stat-label">Avg Performance</div>
+                        <div class="stat-value">—</div>
+                        <div class="stat-change neutral">Belum ada assessment</div>
+                    </div>
+                    <div class="stat-card green">
+                        <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
+                        <div class="stat-label">Assessments Done</div>
+                        <div class="stat-value">0</div>
+                        <div class="stat-change neutral">dari 156 anggota</div>
+                    </div>
+                    <div class="stat-card purple">
+                        <div class="stat-icon purple"><i class="fas fa-building"></i></div>
+                        <div class="stat-label">Departments</div>
+                        <div class="stat-value">10</div>
+                        <div class="stat-change neutral">Active departments</div>
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title"><i class="fas fa-chart-bar"
+                                    style="color:var(--blue-400);margin-right:6px;"></i>Score Distribution</div>
+                        </div>
+                        <div class="card-body"><canvas id="scoreDistChart" height="200"></canvas></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title"><i class="fas fa-chart-line"
+                                    style="color:var(--blue-400);margin-right:6px;"></i>Monthly Trend</div>
+                        </div>
+                        <div class="card-body"><canvas id="trendChart" height="200"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="grid-2 mt-20">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title"><i class="fas fa-trophy"
+                                    style="color:var(--gold-500);margin-right:6px;"></i>Top 10 Performers</div>
+                            <span style="font-size:11px;color:var(--text-muted);">Semua dept</span>
+                        </div>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Anggota</th>
+                                    <th>Departemen</th>
+                                    <th>Score</th>
+                                    <th>Band</th>
+                                </tr>
+                            </thead>
+                            <tbody id="top-performers-table"></tbody>
+                        </table>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title"><i class="fas fa-sitemap"
+                                    style="color:var(--blue-400);margin-right:6px;"></i>Department Rankings</div>
+                        </div>
+                        <div class="card-body" id="dept-ranking-list" style="padding-top:12px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══════════ PAGE: MEMBERS ═══════════ -->
+            <div id="page-members" class="page">
+                <div class="filter-bar">
+                    <select class="filter-select" id="filter-dept">
+                        <option value="">Semua Departemen</option>
+                        <option>EXECUTIVE BOARD</option>
+                        <option>HUMAN RESOURCE DEVELOPMENT</option>
+                        <option>INTERNAL AFFAIRS</option>
+                        <option>STUDENT WELFARE</option>
+                        <option>RESEARCH AND TECHNOLOGY</option>
+                        <option>INFORMATION MEDIA</option>
+                        <option>EXTERNAL AFFAIRS</option>
+                        <option>ENTERPRENEURSHIP</option>
+                        <option>SOCIAL DEVELOPMENT</option>
+                        <option>MANAGE</option>
+                    </select>
+                    <select class="filter-select" id="filter-batch">
+                        <option value="">Semua Batch</option>
+                        <option>2023</option>
+                        <option>2024</option>
+                    </select>
+                    <select class="filter-select" id="filter-band">
+                        <option value="">Semua Band</option>
+                        <option>Outstanding</option>
+                        <option>Excellent</option>
+                        <option>Very Good</option>
+                        <option>Good</option>
+                        <option>Fair</option>
+                        <option>Needs Improvement</option>
+                    </select>
+                    <div style="flex:1"></div>
+                    <button class="topbar-action btn-primary"><i class="fas fa-plus"></i> Tambah Anggota</button>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Daftar Functional Members</div>
+                        <span style="font-size:12px;color:var(--text-muted);" id="members-count">156 anggota</span>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Anggota</th>
+                                <th>NRP</th>
+                                <th>Departemen</th>
+                                <th>Jabatan</th>
+                                <th>Batch</th>
+                                <th>Score</th>
+                                <th>Band</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="members-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ═══════════ PAGE: DEPARTMENTS ═══════════ -->
+            <div id="page-departments" class="page">
+                <div style="display:flex;gap:10px;margin-bottom:20px;">
+                    <div style="flex:1"></div>
+                    <button class="topbar-action btn-primary"><i class="fas fa-plus"></i> Tambah Dept</button>
+                </div>
+                <div class="grid-3" id="dept-cards-grid"></div>
+            </div>
+
+            <!-- ═══════════ PAGE: ASSESSMENT ═══════════ -->
+            <div id="page-assessment" class="page">
+                <div style="display:flex;gap:14px;margin-bottom:22px;align-items:center;flex-wrap:wrap;">
+                    <select class="filter-select">
+                        <option>— Pilih Anggota —</option>
+                        <!-- Diisi dinamis nantinya -->
+                    </select>
+                    <select class="filter-select">
+                        <option>Periode: November 2024</option>
+                        <option>Oktober 2024</option>
+                        <option>September 2024</option>
+                    </select>
+                    <div style="flex:1"></div>
+                    <span style="font-size:12px;color:var(--text-muted);">Total Score:
+                        <b id="total-score-live" style="color:var(--text-primary);font-size:15px;">—</b>
+                    </span>
+                    <button class="topbar-action btn-primary" onclick="calcTotalScore()">
+                        <i class="fas fa-calculator"></i> Hitung Score
+                    </button>
+                </div>
+
+                <!-- Pilar 1 -->
+                <div class="pilar-section">
+                    <div class="pilar-header">
+                        <div class="pilar-num">1</div>
+                        <div class="pilar-header-name">Adaptif &amp; Proaktif</div>
+                        <span class="pilar-weight">22%</span>
+                    </div>
+                    <div class="pilar-body">
+                        <div class="indicator-row">
+                            <div class="indicator-label">Responsiveness — Kecepatan merespons tugas dan informasi</div>
+                            <div class="rating-btns">
+                                <button class="rating-btn" onclick="selectRating(this,1)">1</button>
+                                <button class="rating-btn" onclick="selectRating(this,2)">2</button>
+                                <button class="rating-btn" onclick="selectRating(this,3)">3</button>
+                                <button class="rating-btn" onclick="selectRating(this,4)">4</button>
+                            </div>
+                        </div>
+                        <div class="indicator-row">
+                            <div class="indicator-label">Initiative — Kemampuan mengambil inisiatif tanpa menunggu
+                                instruksi</div>
+                            <div class="rating-btns">
+                                <button class="rating-btn" onclick="selectRating(this,1)">1</button>
+                                <button class="rating-btn" onclick="selectRating(this,2)">2</button>
+                                <button class="rating-btn" onclick="selectRating(this,3)">3</button>
+                                <button class="rating-btn" onclick="selectRating(this,4)">4</button>
+                            </div>
+                        </div>
+                        <div class="indicator-row">
+                            <div class="indicator-label">Openness to Feedback — Keterbukaan menerima dan menerapkan
+                                masukan</div>
+                            <div class="rating-btns">
+                                <button class="rating-btn" onclick="selectRating(this,1)">1</button>
+                                <button class="rating-btn" onclick="selectRating(this,2)">2</button>
+                                <button class="rating-btn" onclick="selectRating(this,3)">3</button>
+                                <button class="rating-btn" onclick="selectRating(this,4)">4</button>
+                            </div>
+                        </div>
+                        <div class="indicator-row">
+                            <div class="indicator-label">Cross-dept Collaboration — Kolaborasi aktif lintas departemen
+                            </div>
+                            <div class="rating-btns">
+                                <button class="rating-btn" onclick="selectRating(this,1)">1</button>
+                                <button class="rating-btn" onclick="selectRating(this,2)">2</button>
+                                <button class="rating-btn" onclick="selectRating(this,3)">3</button>
+                                <button class="rating-btn" onclick="selectRating(this,4)">4</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pilar 2 -->
+                <div class="pilar-section">
+                    <div class="pilar-header">
+                        <div class="pilar-num" style="background:var(--gold-500);">2</div>
+                        <div class="pilar-header-name">Berdampak &amp; Bernilai</div>
+                        <span class="pilar-weight">25%</span>
+                    </div>
+                    <div class="pilar-body">
+                        <div class="indicator-row">
+                            <div class="indicator-label">Program Contribution — Kontribusi nyata dalam program kerja
+                            </div>
+                            <div class="rating-btns"><button class="rating-btn"
+                                    onclick="selectRating(this,1)">1</button><button class="rating-btn"
+                                    onclick="selectRating(this,2)">2</button><button class="rating-btn"
+                                    onclick="selectRating(this,3)">3</button><button class="rating-btn"
+                                    onclick="selectRating(this,4)">4</button></div>
+                        </div>
+                        <div class="indicator-row">
+                            <div class="indicator-label">Task Completion — Penyelesaian tugas tepat waktu dan tuntas
+                            </div>
+                            <div class="rating-btns"><button class="rating-btn"
+                                    onclick="selectRating(this,1)">1</button><button class="rating-btn"
+                                    onclick="selectRating(this,2)">2</button><button class="rating-btn"
+                                    onclick="selectRating(this,3)">3</button><button class="rating-btn"
+                                    onclick="selectRating(this,4)">4</button></div>
+                        </div>
+                        <div class="indicator-row">
+                            <div class="indicator-label">Innovation &amp; Improvement — Inisiatif inovasi dan perbaikan
+                                proses</div>
+                            <div class="rating-btns"><button class="rating-btn"
+                                    onclick="selectRating(this,1)">1</button><button class="rating-btn"
+                                    onclick="selectRating(this,2)">2</button><button class="rating-btn"
+                                    onclick="selectRating(this,3)">3</button><button class="rating-btn"
+                                    onclick="selectRating(this,4)">4</button></div>
+                        </div>
+                        <div class="indicator-row">
+                            <div class="indicator-label">Organizational Impact — Dampak nyata bagi organisasi secara
+                                luas</div>
+                            <div class="rating-btns"><button class="rating-btn"
+                                    onclick="selectRating(this,1)">1</button><button class="rating-btn"
+                                    onclick="selectRating(this,2)">2</button><button class="rating-btn"
+                                    onclick="selectRating(this,3)">3</button><button class="rating-btn"
+                                    onclick="selectRating(this,4)">4</button></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pilar 3 -->
+                <div class="pilar-section">
+                    <div class="pilar-header">
+                        <div class="pilar-num" style="background:#22C55E;">3</div>
+                        <div class="pilar-header-name">Humanis &amp; Kekeluargaan</div>
+                        <span class="pilar-weight">23%</span>
+                    </div>
+                    <div class="pilar-body">
+                        <div class="indicator-row">
+                            <div class="indicator-label">Supportive Communication — Komunikasi yang mendukung dan
+                                membangun</div>
+                            <div class="rating-btns"><button class="rating-btn"
+                                    onclick="selectRating(this,1)">1</button><button class="rating-btn"
+                                    onclick="selectRating(this,2)">2</button><button class="rating-btn"
+                                    onclick="selectRating(this,3)">3</button><button class="rating-btn"
+                                    onclick="selectRating(this,4)">4</button></div>
+                        </div>
+                        <div class="indicator-row">
+                            <div class="indicator-label">Teamwork — Kemampuan bekerja sama secara efektif dalam tim
+                            </div>
+                            <div class="rating-btns"><button class="rating-btn"
+                                    onclick="selectRating(this,1)">1</button><button class="rating-btn"
+                                    onclick="selectRating(this,2)">2</button><button class="rating-btn"
+                                    onclick="selectRating(this,3)">3</button><button class="rating-btn"
+                                    onclick="selectRating(this,4)">4</button></div>
+                        </div>
+                        <div class="indicator-row">
+                            <div class="indicator-label">Maintaining Harmony — Menjaga keharmonisan dan suasana positif
+                            </div>
+                            <div class="rating-btns"><button class="rating-btn"
+                                    onclick="selectRating(this,1)">1</button><button class="rating-btn"
+                                    onclick="selectRating(this,2)">2</button><button class="rating-btn"
+                                    onclick="selectRating(this,3)">3</button><button class="rating-btn"
+                                    onclick="selectRating(this,4)">4</button></div>
+                        </div>
+                        <div class="indicator-row">
+                            <div class="indicator-label">Delivering Aspirations — Menyampaikan aspirasi secara
+                                konstruktif</div>
+                            <div class="rating-btns"><button class="rating-btn"
+                                    onclick="selectRating(this,1)">1</button><button class="rating-btn"
+                                    onclick="selectRating(this,2)">2</button><button class="rating-btn"
+                                    onclick="selectRating(this,3)">3</button><button class="rating-btn"
+                                    onclick="selectRating(this,4)">4</button></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pilar 4 -->
+                <div class="pilar-section">
+                    <div class="pilar-header">
+                        <div class="pilar-num" style="background:#8B5CF6;">4</div>
+                        <div class="pilar-header-name">Optimalisasi &amp; Profesionalisme</div>
+                        <span class="pilar-weight">30%</span>
+                    </div>
+                    <div class="pilar-body">
+                        <div class="indicator-row">
+                            <div class="indicator-label">Timeliness — Ketepatan waktu dalam setiap pekerjaan dan
+                                kegiatan</div>
+                            <div class="rating-btns"><button class="rating-btn"
+                                    onclick="selectRating(this,1)">1</button><button class="rating-btn"
+                                    onclick="selectRating(this,2)">2</button><button class="rating-btn"
+                                    onclick="selectRating(this,3)">3</button><button class="rating-btn"
+                                    onclick="selectRating(this,4)">4</button></div>
+                        </div>
+                        <div class="indicator-row">
+                            <div class="indicator-label">Work Quality — Kualitas output pekerjaan yang dihasilkan</div>
+                            <div class="rating-btns"><button class="rating-btn"
+                                    onclick="selectRating(this,1)">1</button><button class="rating-btn"
+                                    onclick="selectRating(this,2)">2</button><button class="rating-btn"
+                                    onclick="selectRating(this,3)">3</button><button class="rating-btn"
+                                    onclick="selectRating(this,4)">4</button></div>
+                        </div>
+                        <div class="indicator-row">
+                            <div class="indicator-label">Discipline &amp; Consistency — Kedisiplinan dan konsistensi
+                                kinerja</div>
+                            <div class="rating-btns"><button class="rating-btn"
+                                    onclick="selectRating(this,1)">1</button><button class="rating-btn"
+                                    onclick="selectRating(this,2)">2</button><button class="rating-btn"
+                                    onclick="selectRating(this,3)">3</button><button class="rating-btn"
+                                    onclick="selectRating(this,4)">4</button></div>
+                        </div>
+                        <div class="indicator-row">
+                            <div class="indicator-label">Communication Effectiveness — Efektivitas komunikasi
+                                profesional</div>
+                            <div class="rating-btns"><button class="rating-btn"
+                                    onclick="selectRating(this,1)">1</button><button class="rating-btn"
+                                    onclick="selectRating(this,2)">2</button><button class="rating-btn"
+                                    onclick="selectRating(this,3)">3</button><button class="rating-btn"
+                                    onclick="selectRating(this,4)">4</button></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feedback Input -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title"><i class="fas fa-comment-alt"
+                                style="color:var(--blue-400);margin-right:6px;"></i>Personal Message &amp; Feedback
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                            <div>
+                                <label
+                                    style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">Appreciation</label>
+                                <textarea placeholder="Tuliskan apresiasi untuk anggota ini..." rows="4"
+                                    style="width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--text-secondary);outline:none;resize:vertical;font-family:inherit;"></textarea>
+                            </div>
+                            <div>
+                                <label
+                                    style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">Improvement
+                                    Suggestions</label>
+                                <textarea placeholder="Saran pengembangan untuk ke depannya..." rows="4"
+                                    style="width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--text-secondary);outline:none;resize:vertical;font-family:inherit;"></textarea>
+                            </div>
+                            <div style="grid-column:1/-1;">
+                                <label
+                                    style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">Personal
+                                    Message dari Kepala Departemen</label>
+                                <textarea placeholder="Pesan pribadi dari Kadept..." rows="3"
+                                    style="width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--text-secondary);outline:none;resize:vertical;font-family:inherit;"></textarea>
+                            </div>
+                        </div>
+                        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
+                            <button class="topbar-action btn-outline">Simpan Draft</button>
+                            <button class="topbar-action btn-primary"><i class="fas fa-save"></i> Simpan
+                                Assessment</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══════════ PAGE: REPORT PREVIEW ═══════════ -->
+            <div id="page-report-preview" class="page">
+                <div class="report-controls">
+                    <select class="member-selector">
+                        <option>— Pilih Anggota —</option>
+                    </select>
+                    <button class="topbar-action btn-outline"><i class="fas fa-eye"></i> Preview</button>
+                    <button class="topbar-action btn-primary"><i class="fas fa-file-pdf"></i> Download PDF</button>
+                    <button class="topbar-action btn-outline"
+                        style="color:var(--gold-600);border-color:var(--gold-300);">
+                        <i class="fas fa-layer-group"></i> Mass Generate
+                    </button>
+                </div>
+
+                <div class="rp-page-nav">
+                    <button class="page-nav-btn active" onclick="showReportPage(0, this)">Cover</button>
+                    <button class="page-nav-btn" onclick="showReportPage(1, this)">Visi &amp; Misi</button>
+                    <button class="page-nav-btn" onclick="showReportPage(2, this)">Pesan Pimpinan</button>
+                    <button class="page-nav-btn" onclick="showReportPage(3, this)">Performance</button>
+                    <button class="page-nav-btn" onclick="showReportPage(4, this)">Feedback</button>
+                    <button class="page-nav-btn" onclick="showReportPage(5, this)">Penutup</button>
+                </div>
+
+                <div class="rp-wrapper">
+
+                    <!-- Page 1: Cover -->
+                    <div class="rp-page cover-page" id="rp-0">
+                        <div class="cover-pattern"></div>
+                        <div class="cover-content">
+                            <div class="cover-org">Himpunan Mahasiswa Sistem Informasi · ITS</div>
+                            <div class="cover-title">PILAR AKSI<br><span>Performance Report</span></div>
+                            <div class="cover-subtitle">Laporan Evaluasi Kinerja Fungsionaris</div>
+                            <div class="cover-divider"></div>
+                            <div style="margin-bottom:32px;">
+                                <div
+                                    style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#1E56A0,#5E9EE8);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:white;border:3px solid rgba(232,184,32,.4);">
+                                    AR</div>
+                                <div
+                                    style="font-family:'Plus Jakarta Sans',sans-serif;font-size:18px;font-weight:700;color:white;">
+                                    Ahmad Rizky Pratama</div>
+                                <div style="font-size:12px;color:rgba(255,255,255,.45);margin-top:4px;">5025220042 ·
+                                    Staf PTA</div>
+                                <div style="font-size:12px;color:var(--gold-300);margin-top:4px;font-weight:600;">
+                                    Departemen Pengembangan &amp; Teknologi Aplikasi</div>
+                            </div>
+                            <div class="cover-period">Kabinet Pilar Aksi · Periode 2026/2027</div>
+                        </div>
+                    </div>
+
+                    <!-- Page 2: Visi & Misi -->
+                    <div class="rp-page" id="rp-1" style="display:none;padding:52px 60px;background:white;">
+                        <div style="border-bottom:2px solid var(--blue-50);padding-bottom:24px;margin-bottom:32px;">
+                            <div
+                                style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--gold-600);font-weight:600;margin-bottom:8px;">
+                                Fondasi Organisasi</div>
+                            <div
+                                style="font-family:'Plus Jakarta Sans',sans-serif;font-size:26px;font-weight:800;color:var(--blue-900);">
+                                Visi &amp; Misi HMSI ITS</div>
+                        </div>
+                        <div style="margin-bottom:32px;">
+                            <div
+                                style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--blue-400);font-weight:700;margin-bottom:10px;">
+                                Visi</div>
+                            <div style="font-size:15px;font-weight:600;color:var(--text-primary);line-height:1.7;">
+                                Menjadi himpunan mahasiswa yang adaptif, berdampak, humanis, dan profesional dalam
+                                mencetak generasi Sistem Informasi yang unggul dan berkontribusi nyata bagi masyarakat.
+                            </div>
+                        </div>
+                        <div>
+                            <div
+                                style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--blue-400);font-weight:700;margin-bottom:14px;">
+                                Misi</div>
+                            <div style="display:flex;flex-direction:column;gap:10px;">
+                                <div
+                                    style="display:flex;gap:12px;align-items:flex-start;background:var(--blue-50);border-radius:10px;padding:14px 16px;">
+                                    <div
+                                        style="min-width:28px;height:28px;border-radius:50%;background:var(--blue-500);color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">
+                                        A</div>
+                                    <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">Membentuk
+                                        fungsionaris yang <b>Adaptif &amp; Proaktif</b> dalam menghadapi dinamika
+                                        organisasi dan perkembangan teknologi.</div>
+                                </div>
+                                <div
+                                    style="display:flex;gap:12px;align-items:flex-start;background:#FDF3C8;border-radius:10px;padding:14px 16px;">
+                                    <div
+                                        style="min-width:28px;height:28px;border-radius:50%;background:var(--gold-500);color:var(--blue-900);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">
+                                        B</div>
+                                    <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">Mendorong
+                                        karya yang <b>Berdampak &amp; Bernilai</b> melalui program kerja yang inovatif
+                                        dan terukur.</div>
+                                </div>
+                                <div
+                                    style="display:flex;gap:12px;align-items:flex-start;background:#F0FDF4;border-radius:10px;padding:14px 16px;">
+                                    <div
+                                        style="min-width:28px;height:28px;border-radius:50%;background:#22C55E;color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">
+                                        H</div>
+                                    <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">Membangun
+                                        budaya organisasi yang <b>Humanis &amp; Kekeluargaan</b> dengan mengedepankan
+                                        rasa saling menghargai.</div>
+                                </div>
+                                <div
+                                    style="display:flex;gap:12px;align-items:flex-start;background:#F5F3FF;border-radius:10px;padding:14px 16px;">
+                                    <div
+                                        style="min-width:28px;height:28px;border-radius:50%;background:#8B5CF6;color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">
+                                        O</div>
+                                    <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">Mewujudkan
+                                        standar <b>Optimalisasi &amp; Profesionalisme</b> dalam setiap aspek
+                                        keorganisasian HMSI ITS.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Page 3: Pesan Pimpinan -->
+                    <div class="rp-page" id="rp-2" style="display:none;padding:52px 60px;background:white;">
+                        <div
+                            style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--gold-600);font-weight:600;margin-bottom:8px;">
+                            Dari Kami</div>
+                        <div
+                            style="font-family:'Plus Jakarta Sans',sans-serif;font-size:24px;font-weight:800;color:var(--blue-900);margin-bottom:32px;">
+                            Pesan dari Pimpinan HMSI</div>
+                        <div
+                            style="background:var(--blue-900);border-radius:16px;padding:32px;margin-bottom:28px;position:relative;overflow:hidden;">
+                            <div
+                                style="position:absolute;top:-20px;right:-10px;font-size:100px;color:rgba(255,255,255,.04);font-family:serif;">
+                                "</div>
+                            <div
+                                style="font-size:14px;line-height:1.9;color:rgba(255,255,255,.75);font-style:italic;position:relative;z-index:1;">
+                                Setiap perjalanan dalam kabinet ini adalah bukti nyata dedikasi kalian. Laporan ini
+                                bukan sekadar angka — ia adalah cerminan dari seberapa besar kalian telah bertumbuh,
+                                berkontribusi, dan memberikan makna bagi HMSI. Terima kasih atas setiap langkah yang
+                                telah kalian ambil dengan penuh tanggung jawab.</div>
+                            <div
+                                style="margin-top:20px;display:flex;align-items:center;gap:12px;position:relative;z-index:1;">
+                                <div
+                                    style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--gold-500),var(--gold-300));display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--blue-900);font-size:14px;">
+                                    AS</div>
+                                <div>
+                                    <div style="font-size:13px;font-weight:700;color:white;">Abrorus Shobah · Ketua Umum
+                                        HMSI ITS</div>
+                                    <div style="font-size:11px;color:rgba(255,255,255,.4);">Kabinet Pilar Aksi
+                                        2024/2025</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Page 4: Performance Report -->
+                    <div class="rp-page perf-page" id="rp-3" style="display:none;">
+                        <div class="perf-header">
+                            <div class="perf-photo">AR</div>
+                            <div style="flex:1;">
+                                <div class="perf-name">Ahmad Rizky Pratama</div>
+                                <div class="perf-nrp">NRP: 5025220042</div>
+                                <div class="perf-dept">Departemen PTA · Staf Aktif</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div
+                                    style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.4);">
+                                    Assessment Period</div>
+                                <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.8);margin-top:2px;">
+                                    November 2024</div>
+                            </div>
+                        </div>
+                        <div class="perf-body">
+                            <div class="perf-left">
+                                <div
+                                    style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);font-weight:600;margin-bottom:12px;">
+                                    Skor per Pilar</div>
+                                <div class="pilar-row">
+                                    <div class="pilar-name">P1 — Adaptif &amp; Proaktif</div>
+                                    <div class="pilar-bar">
+                                        <div class="progress-bar">
+                                            <div class="progress-fill" style="width:85%;"></div>
+                                        </div>
+                                    </div>
+                                    <div class="pilar-score">18.7<span
+                                            style="font-size:9px;color:var(--text-muted);">/22</span></div>
+                                </div>
+                                <div class="pilar-row">
+                                    <div class="pilar-name">P2 — Berdampak &amp; Bernilai</div>
+                                    <div class="pilar-bar">
+                                        <div class="progress-bar">
+                                            <div class="progress-fill gold" style="width:88%;"></div>
+                                        </div>
+                                    </div>
+                                    <div class="pilar-score">22.0<span
+                                            style="font-size:9px;color:var(--text-muted);">/25</span></div>
+                                </div>
+                                <div class="pilar-row">
+                                    <div class="pilar-name">P3 — Humanis &amp; Kekeluargaan</div>
+                                    <div class="pilar-bar">
+                                        <div class="progress-bar">
+                                            <div class="progress-fill green" style="width:91%;"></div>
+                                        </div>
+                                    </div>
+                                    <div class="pilar-score">20.9<span
+                                            style="font-size:9px;color:var(--text-muted);">/23</span></div>
+                                </div>
+                                <div class="pilar-row">
+                                    <div class="pilar-name">P4 — Optimalisasi &amp; Prof.</div>
+                                    <div class="pilar-bar">
+                                        <div class="progress-bar">
+                                            <div class="progress-fill"
+                                                style="width:80%;background:linear-gradient(90deg,#8B5CF6,#C4B5FD);">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="pilar-score">24.0<span
+                                            style="font-size:9px;color:var(--text-muted);">/30</span></div>
+                                </div>
+                                <div style="height:1px;background:var(--border);margin:16px 0;"></div>
+                                <div
+                                    style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);font-weight:600;margin-bottom:10px;">
+                                    Breakdown Indikator</div>
+                                <canvas id="radarChart" height="200"></canvas>
+                            </div>
+                            <div class="perf-right">
+                                <div class="perf-score-main">
+                                    <div
+                                        style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.4);margin-bottom:8px;">
+                                        Final Score</div>
+                                    <div class="perf-score-num">85.6</div>
+                                    <div class="perf-score-label">dari 100</div>
+                                    <div class="perf-band">✦ Excellent</div>
+                                </div>
+                                <div class="perf-ranking">
+                                    <div
+                                        style="font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--text-muted);font-weight:600;margin-bottom:10px;">
+                                        Ranking</div>
+                                    <div class="rank-row">
+                                        <div class="rank-row-label">Dept. Ranking</div>
+                                        <div class="rank-row-val" style="color:var(--gold-600);">#3<span
+                                                style="font-size:10px;color:var(--text-muted);">/16</span></div>
+                                    </div>
+                                    <div class="rank-row">
+                                        <div class="rank-row-label">Cabinet Ranking</div>
+                                        <div class="rank-row-val">#12<span
+                                                style="font-size:10px;color:var(--text-muted);">/156</span></div>
+                                    </div>
+                                    <div class="rank-row" style="border:none;">
+                                        <div class="rank-row-label">Dept. Avg</div>
+                                        <div class="rank-row-val" style="font-size:14px;">—</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Page 5: Feedback -->
+                    <div class="rp-page feedback-page" id="rp-4" style="display:none;">
+                        <div class="fb-header">
+                            <div class="fb-label">Personal Feedback</div>
+                            <div class="fb-title">Pesan &amp; Catatan untuk Ahmad Rizky</div>
+                        </div>
+                        <div class="fb-section">
+                            <div class="fb-section-title"><i class="fas fa-star"></i> Apresiasi</div>
+                            <div class="fb-text">Ahmad menunjukkan performa yang sangat konsisten sepanjang periode ini.
+                                Kemampuannya dalam menyelesaikan proyek teknis dengan standar kualitas tinggi, serta
+                                inisiatif yang selalu muncul tanpa harus diminta, menjadikan ia salah satu aset
+                                terpenting di PTA.</div>
+                        </div>
+                        <div class="fb-section">
+                            <div class="fb-section-title"><i class="fas fa-arrow-trend-up"></i> Saran Pengembangan</div>
+                            <div class="fb-text">Untuk periode berikutnya, Ahmad disarankan untuk lebih aktif dalam
+                                mengambil peran kepemimpinan dalam proyek-proyek besar. Kemampuan presentasi dan
+                                komunikasi ke stakeholder eksternal juga perlu diperkuat.</div>
+                        </div>
+                        <div class="fb-section">
+                            <div class="fb-section-title"><i class="fas fa-envelope-open-text"></i> Pesan Pribadi dari
+                                Kadept</div>
+                            <div class="fb-quote">Rizky, kamu adalah salah satu anggota yang membuat aku bangga jadi
+                                Kadept. Setiap kerja kerasmu tidak pernah luput dari perhatian kami. Teruslah tumbuh! 🎯
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Page 6: Closing -->
+                    <div class="rp-page cover-page" id="rp-5" style="display:none;">
+                        <div class="cover-pattern"></div>
+                        <div class="cover-content">
+                            <div style="font-size:40px;margin-bottom:24px;color:var(--gold-400);">✦</div>
+                            <div
+                                style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:16px;">
+                                Terima Kasih</div>
+                            <div
+                                style="font-family:'Plus Jakarta Sans',sans-serif;font-size:22px;font-weight:800;color:white;line-height:1.4;margin-bottom:20px;">
+                                Setiap langkah yang kamu ambil<br>adalah bagian dari cerita<br><span
+                                    style="color:var(--gold-400);">HMSI ITS</span></div>
+                            <div class="cover-divider"></div>
+                            <div style="display:flex;gap:16px;justify-content:center;margin-bottom:32px;">
+                                <div style="text-align:center;">
+                                    <div
+                                        style="font-family:'Plus Jakarta Sans',sans-serif;font-size:20px;font-weight:800;color:var(--gold-400);">
+                                        85.6</div>
+                                    <div style="font-size:10px;color:rgba(255,255,255,.35);letter-spacing:.5px;">Final
+                                        Score</div>
+                                </div>
+                                <div style="width:1px;background:rgba(255,255,255,.1);"></div>
+                                <div style="text-align:center;">
+                                    <div
+                                        style="font-family:'Plus Jakarta Sans',sans-serif;font-size:20px;font-weight:800;color:white;">
+                                        Excellent</div>
+                                    <div style="font-size:10px;color:rgba(255,255,255,.35);letter-spacing:.5px;">
+                                        Performance Band</div>
+                                </div>
+                                <div style="width:1px;background:rgba(255,255,255,.1);"></div>
+                                <div style="text-align:center;">
+                                    <div
+                                        style="font-family:'Plus Jakarta Sans',sans-serif;font-size:20px;font-weight:800;color:white;">
+                                        #12</div>
+                                    <div style="font-size:10px;color:rgba(255,255,255,.35);letter-spacing:.5px;">Cabinet
+                                        Rank</div>
+                                </div>
+                            </div>
+                            <div class="cover-period">HMSI ITS · Kabinet Pilar Aksi · 2024/2025</div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- ═══════════ PAGE: ANALYTICS ═══════════ -->
+            <div id="page-analytics" class="page">
+                <div class="grid-2" style="margin-bottom:20px;">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Radar Chart — Avg per Pilar</div>
+                        </div>
+                        <div class="card-body"><canvas id="avgRadarChart" height="250"></canvas></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Perbandingan Departemen</div>
+                        </div>
+                        <div class="card-body"><canvas id="deptCompareChart" height="250"></canvas></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Score Distribution per Band</div>
+                    </div>
+                    <div class="card-body"><canvas id="bandChart" height="130"></canvas></div>
+                </div>
+            </div>
+
+            <!-- ═══════════ PAGE: SETTINGS ═══════════ -->
+            <div id="page-settings" class="page">
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title"><i class="fas fa-calendar-alt"
+                                    style="color:var(--blue-400);margin-right:6px;"></i>Cabinet Periods</div>
+                            <button class="topbar-action btn-primary" style="padding:5px 12px;font-size:12px;"><i
+                                    class="fas fa-plus"></i></button>
+                        </div>
+                        <div class="card-body">
+                            <div style="display:flex;flex-direction:column;gap:10px;">
+                                <div
+                                    style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--blue-50);">
+                                    <div style="width:8px;height:8px;border-radius:50%;background:var(--blue-500);">
+                                    </div>
+                                    <div style="flex:1;">
+                                        <div style="font-size:13px;font-weight:600;">Kabinet Niskalarasi</div>
+                                        <div style="font-size:11px;color:var(--text-muted);">2024/2025 · Aktif</div>
+                                    </div>
+                                    <span
+                                        style="font-size:11px;background:var(--blue-100);color:var(--blue-700);padding:2px 8px;border-radius:20px;font-weight:600;">Active</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title"><i class="fas fa-shield-alt"
+                                    style="color:var(--blue-400);margin-right:6px;"></i>User Roles &amp; Permissions
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div style="display:flex;flex-direction:column;gap:8px;">
+                                <div
+                                    style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;">
+                                    <i class="fas fa-crown" style="color:var(--gold-500);width:18px;"></i>
+                                    <div style="flex:1;">
+                                        <div style="font-size:13px;font-weight:600;">Super Admin</div>
+                                        <div style="font-size:11px;color:var(--text-muted);">Full access · 1 user</div>
+                                    </div>
+                                </div>
+                                <div
+                                    style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;">
+                                    <i class="fas fa-user-tie" style="color:var(--blue-500);width:18px;"></i>
+                                    <div style="flex:1;">
+                                        <div style="font-size:13px;font-weight:600;">Head Department</div>
+                                        <div style="font-size:11px;color:var(--text-muted);">Dept management · 10 users
+                                        </div>
+                                    </div>
+                                </div>
+                                <div
+                                    style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;">
+                                    <i class="fas fa-user-check" style="color:#22C55E;width:18px;"></i>
+                                    <div style="flex:1;">
+                                        <div style="font-size:13px;font-weight:600;">Vice Head Dept</div>
+                                        <div style="font-size:11px;color:var(--text-muted);">Assist evaluation · 10
+                                            users</div>
+                                    </div>
+                                </div>
+                                <div
+                                    style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;">
+                                    <i class="fas fa-user" style="color:#8B5CF6;width:18px;"></i>
+                                    <div style="flex:1;">
+                                        <div style="font-size:13px;font-weight:600;">Functional Member</div>
+                                        <div style="font-size:11px;color:var(--text-muted);">View only · 136 users</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /page-content -->
+    </main>
+
+    <!-- Project scripts — urutan penting: data dulu, baru app -->
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
