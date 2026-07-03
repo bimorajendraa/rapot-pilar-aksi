@@ -119,7 +119,6 @@ function renderDeptRankings() {
                 </div>
             </div>
             <div style="font-size:14px;font-weight:800;color:var(--text-primary);min-width:40px;text-align:right;">${d.computedAvg ?? '—'}</div>
-            <div style="font-size:11px;color:var(--text-muted);min-width:44px;text-align:right;">mbr</div>
         </div>
     `).join('');
 }
@@ -184,8 +183,38 @@ function handleFilters() {
 function updateMemberCount() {
     const badge = document.querySelector('.nav-badge');
     if (badge) badge.textContent = MEMBERS_DATA.length;
-    const statVal = document.querySelector('.stat-card.blue .stat-value');
-    if (statVal) statVal.textContent = MEMBERS_DATA.length;
+
+    // Total Members
+    const statValBlue = document.querySelector('.stat-card.blue .stat-value');
+    if (statValBlue) statValBlue.textContent = MEMBERS_DATA.length;
+
+    // Aggregating Assessment Data
+    const membersWithScore = MEMBERS_DATA.filter(m => m.score !== null);
+
+    // Assessments Done
+    const statValGreen = document.querySelector('.stat-card.green .stat-value');
+    if (statValGreen) statValGreen.textContent = membersWithScore.length;
+    const statChangeGreen = document.querySelector('.stat-card.green .stat-change');
+    if (statChangeGreen) statChangeGreen.textContent = `dari ${MEMBERS_DATA.length} anggota`;
+
+    // Avg Performance
+    const statValGold = document.querySelector('.stat-card.gold .stat-value');
+    const statChangeGold = document.querySelector('.stat-card.gold .stat-change');
+    if (membersWithScore.length > 0) {
+        const sum = membersWithScore.reduce((a, b) => a + parseFloat(b.score), 0);
+        const avg = (sum / membersWithScore.length).toFixed(1);
+        if (statValGold) statValGold.textContent = avg;
+        if (statChangeGold) {
+            statChangeGold.textContent = 'Berdasarkan assessment';
+            statChangeGold.className = 'stat-change positive';
+        }
+    } else {
+        if (statValGold) statValGold.textContent = '—';
+        if (statChangeGold) {
+            statChangeGold.textContent = 'Belum ada assessment';
+            statChangeGold.className = 'stat-change neutral';
+        }
+    }
 }
 
 function renderDeptCards() {
@@ -307,14 +336,25 @@ function initDashboardCharts() {
     if (chartsInit) return;
     chartsInit = true;
 
-    // Score Distribution
-    new Chart(document.getElementById('scoreDistChart'), {
+    const dist = [0, 0, 0, 0, 0, 0];
+    MEMBERS_DATA.forEach(m => {
+        if (m.score !== null) {
+            if (m.band === 'Outstanding') dist[0]++;
+            else if (m.band === 'Excellent') dist[1]++;
+            else if (m.band === 'Very Good') dist[2]++;
+            else if (m.band === 'Good') dist[3]++;
+            else if (m.band === 'Fair') dist[4]++;
+            else if (m.band === 'Needs Improvement') dist[5]++;
+        }
+    });
+
+    window.dashboardScoreChart = new Chart(document.getElementById('scoreDistChart'), {
         type: 'bar',
         data: {
             labels: ['Outstanding\n95–100', 'Excellent\n85–94', 'Very Good\n75–84', 'Good\n65–74', 'Fair\n50–64', 'Needs Imp.'],
             datasets: [{
                 label: 'Jumlah Anggota',
-                data: [0, 0, 0, 0, 0, 0], // akan berisi 0 karena belum ada assessment
+                data: dist,
                 backgroundColor: ['#FDF3C8', '#DBE9F8', '#F0FDF4', '#F5F3FF', '#FFF7ED', '#FEF2F2'],
                 borderColor: ['#D4A017', '#1E56A0', '#22C55E', '#8B5CF6', '#C2410C', '#B91C1C'],
                 borderWidth: 1.5, borderRadius: 6,
@@ -486,17 +526,44 @@ async function refreshData() {
             fetch(`${API_URL}/members`),
             fetch(`${API_URL}/departments`)
         ]);
-        MEMBERS_DATA = await mRes.json();
+        const rawMembers = await mRes.json();
         DEPTS_DATA = await dRes.json();
+
+        // Ensure legacy fields match
+        MEMBERS_DATA = rawMembers.map(m => ({
+            ...m,
+            dept: m.dept_name
+        }));
 
         updateMemberCount();
         renderTopPerformers();
         renderDeptRankings();
         renderMembersTable();
         populateMemberDropdown();
+
+        if (chartsInit) {
+            updateDashboardCharts();
+        }
     } catch (err) {
         console.error('Gagal mengambil data:', err);
     }
+}
+
+function updateDashboardCharts() {
+    if (!window.dashboardScoreChart) return;
+    const dist = [0, 0, 0, 0, 0, 0];
+    MEMBERS_DATA.forEach(m => {
+        if (m.score !== null) {
+            if (m.band === 'Outstanding') dist[0]++;
+            else if (m.band === 'Excellent') dist[1]++;
+            else if (m.band === 'Very Good') dist[2]++;
+            else if (m.band === 'Good') dist[3]++;
+            else if (m.band === 'Fair') dist[4]++;
+            else if (m.band === 'Needs Improvement') dist[5]++;
+        }
+    });
+    window.dashboardScoreChart.data.datasets[0].data = dist;
+    window.dashboardScoreChart.update();
 }
 
 function populateMemberDropdown() {
@@ -587,8 +654,8 @@ async function updateReportPerformance(memberId, member, posText, deptFullname) 
             cabinetRank = scoredMembers.findIndex(m => String(m.id) === String(member.id)) + 1;
         }
 
-        const deptMembers = MEMBERS_DATA.filter(m => m.dept === member.dept);
-        const scoredDeptMembers = deptMembers.filter(m => m.score !== null).sort((a, b) => parseFloat(b.score) - parseFloat(a.score));
+        const deptMembers = MEMBERS_DATA.filter(m => m.dept_name === member.dept_name);
+        const scoredDeptMembers = deptMembers.filter(m => m.score !== null && m.score !== undefined).sort((a, b) => parseFloat(b.score) - parseFloat(a.score));
         let deptRank = '-';
         if (assessment) {
             deptRank = scoredDeptMembers.findIndex(m => String(m.id) === String(member.id)) + 1;
@@ -624,7 +691,7 @@ async function updateReportPerformance(memberId, member, posText, deptFullname) 
                             Assessment Period
                         </div>
                         <div style="font-size:16px; font-weight:700; color:white;">
-                            November 2026
+                            JULY 2026
                         </div>
                     </div>
                 </div>
@@ -678,37 +745,40 @@ async function updateReportPerformance(memberId, member, posText, deptFullname) 
                                 </div>
                             </div>
                         </div>
-                        <div style="font-size:14px; font-weight:800; color:#8ba0b8; letter-spacing:0.5px; margin-top:40px; margin-bottom:12px;">
+                        <div style="font-size:13px; font-weight:800; color:#8ba0b8; letter-spacing:0.5px; margin-top:50px; margin-bottom:10px; text-align:center;">
                             BREAKDOWN INDIKATOR
+                        </div>
+                        <div style="width:100%; height:340px; display:flex; justify-content:center; align-items:center;">
+                            <canvas id="perfRadarChart"></canvas>
                         </div>
                     </div>
 
                     <!-- Right Side: Score & Ranking -->
-                    <div style="width:280px; display:flex; flex-direction:column; gap:24px;">
+                    <div style="width:230px; display:flex; flex-direction:column; gap:20px;">
                         <!-- Final Score Box -->
-                        <div style="background: linear-gradient(135deg, #3b60e4, #5E9EE8); box-shadow: 0 6px 18px rgba(59,96,228,0.25); padding: 24px; border-radius: 16px; display:flex; flex-direction:column; align-items:center;">
-                            <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.9);margin-bottom:12px;font-weight:600;">
+                        <div style="background: linear-gradient(135deg, #3b60e4, #5E9EE8); box-shadow: 0 4px 14px rgba(59,96,228,0.25); padding: 18px; border-radius: 12px; display:flex; flex-direction:column; align-items:center;">
+                            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.9);margin-bottom:8px;font-weight:600;">
                                 Final Score</div>
-                            <div style="color:#FFF8D6; font-size:64px; font-weight:800; line-height:1; font-family:'Plus Jakarta Sans',sans-serif; margin-bottom: 8px;">${totalScore > 0 ? totalScore : '-'}</div>
-                            <div style="color:rgba(255,255,255,.9); font-size:12px; margin-bottom: 12px; font-weight:500;">DARI 100</div>
-                            <div style="color:white; font-size:15px; font-weight:700; display:flex; align-items:center; gap:6px;">✦ ${band}</div>
+                            <div style="color:#FFF8D6; font-size:48px; font-weight:800; line-height:1; font-family:'Plus Jakarta Sans',sans-serif; margin-bottom: 6px;">${totalScore > 0 ? totalScore : '-'}</div>
+                            <div style="color:rgba(255,255,255,.9); font-size:10px; margin-bottom: 8px; font-weight:500;">DARI 100</div>
+                            <div style="color:white; font-size:13px; font-weight:700; display:flex; align-items:center; gap:6px;">✦ ${band}</div>
                         </div>
 
                         <!-- Ranking Box -->
-                        <div style="padding:22px; border-radius:16px; border:1px solid #e0e7ee; box-shadow:0 6px 18px rgba(0,0,0,0.04); background:white;">
-                            <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#1a3a5c;font-weight:800;margin-bottom:16px;">
+                        <div style="padding:16px; border-radius:12px; border:1px solid #e0e7ee; box-shadow:0 4px 12px rgba(0,0,0,0.04); background:white;">
+                            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#1a3a5c;font-weight:800;margin-bottom:12px;">
                                 Ranking</div>
-                            <div style="padding:10px 0; border-bottom:1px solid #e0e7ee; display:flex; justify-content:space-between; align-items:center;">
-                                <div style="font-size:12px; color:var(--text-muted); font-weight:500;">Dept. Ranking</div>
-                                <div style="color:#3b60e4; font-weight:800; font-size:15px;">#${deptRank} <span style="font-size:11px;color:var(--text-muted);font-weight:600;">/${deptMembers.length}</span></div>
+                            <div style="padding:8px 0; border-bottom:1px solid #e0e7ee; display:flex; justify-content:space-between; align-items:center;">
+                                <div style="font-size:11px; color:var(--text-muted); font-weight:500;">Dept. Ranking</div>
+                                <div style="color:#3b60e4; font-weight:800; font-size:13px;">#${deptRank} <span style="font-size:9px;color:var(--text-muted);font-weight:600;">/${deptMembers.length}</span></div>
                             </div>
-                            <div style="padding:10px 0; border-bottom:1px solid #e0e7ee; display:flex; justify-content:space-between; align-items:center;">
-                                <div style="font-size:12px; color:var(--text-muted); font-weight:500;">Cabinet Ranking</div>
-                                <div style="color:#1a3a5c; font-weight:800; font-size:15px;">#${cabinetRank} <span style="font-size:11px;color:var(--text-muted);font-weight:600;">/${MEMBERS_DATA.length}</span></div>
+                            <div style="padding:8px 0; border-bottom:1px solid #e0e7ee; display:flex; justify-content:space-between; align-items:center;">
+                                <div style="font-size:11px; color:var(--text-muted); font-weight:500;">Cabinet Ranking</div>
+                                <div style="color:#1a3a5c; font-weight:800; font-size:13px;">#${cabinetRank} <span style="font-size:9px;color:var(--text-muted);font-weight:600;">/${MEMBERS_DATA.length}</span></div>
                             </div>
-                            <div style="padding-top:12px; display:flex; justify-content:space-between; align-items:center;">
-                                <div style="font-size:12px; color:var(--text-muted); font-weight:500;">Dept. Avg</div>
-                                <div style="font-size:14px; color:#1a3a5c; font-weight:700;">${deptAvg}</div>
+                            <div style="padding-top:10px; display:flex; justify-content:space-between; align-items:center;">
+                                <div style="font-size:11px; color:var(--text-muted); font-weight:500;">Dept. Avg</div>
+                                <div style="font-size:12px; color:#1a3a5c; font-weight:700;">${deptAvg}</div>
                             </div>
                         </div>
                     </div>
@@ -716,6 +786,87 @@ async function updateReportPerformance(memberId, member, posText, deptFullname) 
 
             </div>
         `;
+
+        // Update Feedback Page (rp-4)
+        document.getElementById('fb-appreciation').innerHTML = assessment?.appreciation || '-';
+        document.getElementById('fb-suggestions').innerHTML = assessment?.suggestions || '-';
+        document.getElementById('fb-message').innerHTML = assessment?.personal_message || '-';
+
+        setTimeout(() => {
+            const canvas = document.getElementById('perfRadarChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            if (window.perfRadarChartInstance) {
+                window.perfRadarChartInstance.destroy();
+            }
+
+            const dataValues = assessment ? [
+                assessment.p1_1, assessment.p1_2, assessment.p1_3, assessment.p1_4,
+                assessment.p2_1, assessment.p2_2, assessment.p2_3, assessment.p2_4,
+                assessment.p3_1, assessment.p3_2, assessment.p3_3, assessment.p3_4,
+                assessment.p4_1, assessment.p4_2, assessment.p4_3, assessment.p4_4
+            ] : Array(16).fill(0);
+
+            const data = {
+                labels: [
+                    'Responsiveness', 'Initiative', 'Openness', 'Collaboration',
+                    'Contribution', 'Task Completion', 'Innovation', 'Impact',
+                    'Support. Comm.', 'Teamwork', 'Harmony', 'Aspirations',
+                    'Timeliness', 'Quality', 'Discipline', 'Comm. Effect.'
+                ],
+                datasets: [{
+                    label: 'Scores',
+                    data: dataValues,
+                    backgroundColor: 'rgba(59, 96, 228, 0.15)',
+                    borderColor: 'rgba(59, 96, 228, 0.8)',
+                    pointBackgroundColor: 'rgba(59, 96, 228, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(59, 96, 228, 1)'
+                }]
+            };
+
+            const config = {
+                type: 'radar',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: { color: 'rgba(0, 0, 0, 0.05)' },
+                            grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                            pointLabels: {
+                                font: { size: 10, family: "'Plus Jakarta Sans', sans-serif" },
+                                color: '#4A5C7A'
+                            },
+                            ticks: {
+                                display: false,
+                                suggestedMin: 0,
+                                suggestMax: 4,
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            };
+            window.perfRadarChartInstance = new Chart(ctx, config);
+        }, 100);
+
+        // Update Closing Page
+        const closeScore = document.getElementById('close-final-score');
+        const closeBand = document.getElementById('close-performance-band');
+        const closeRank = document.getElementById('close-cabinet-rank');
+        if (closeScore) closeScore.textContent = assessment ? totalScore : '-';
+        if (closeBand) closeBand.textContent = assessment ? band : '-';
+        if (closeRank) {
+            closeRank.innerHTML = assessment ? `#${cabinetRank}` : `-`;
+        }
+
     } catch (err) {
         console.error("Error fetching assessment", err);
     }
