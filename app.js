@@ -871,3 +871,66 @@ async function updateReportPerformance(memberId, member, posText, deptFullname) 
         console.error("Error fetching assessment", err);
     }
 }
+
+// ═════════════ PDF GENERATION ═════════════
+async function downloadPDF() {
+    const memberSelect = document.getElementById('report-member-select');
+    const selectedId = memberSelect.value;
+
+    if (!selectedId) {
+        alert("Pilih anggota dari dropdown terlebih dahulu.");
+        return;
+    }
+
+    const member = MEMBERS_DATA.find(m => String(m.id) === selectedId);
+    let fileName = `Rapot_${member.name.replace(/\s+/g, '_')}.pdf`;
+
+    // Ambil semua halaman
+    const rpPages = document.querySelectorAll('.rp-page');
+    const container = document.querySelector('.rp-wrapper');
+
+    // Simpan styling UI original untuk direvert
+    const originalStyles = [];
+
+    rpPages.forEach(p => {
+        originalStyles.push({
+            display: p.style.display,
+            borderRadius: p.style.borderRadius,
+            border: p.style.border,
+            boxShadow: p.style.boxShadow,
+            marginBottom: p.style.marginBottom
+        });
+
+        // Strip UI styling for printing
+        p.style.display = 'block';
+        p.style.borderRadius = '0';
+        p.style.border = 'none';
+        p.style.boxShadow = 'none';
+        p.style.marginBottom = '0';
+    });
+
+    const opt = {
+        margin: 0,
+        filename: fileName,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'px', format: [794, 1123], orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'] }
+    };
+
+    try {
+        await html2pdf().set(opt).from(container).save();
+    } catch (e) {
+        console.error("Error generating PDF", e);
+        alert("Terjadi kesalahan saat membuat PDF.");
+    }
+
+    // Revert kembali styling view
+    rpPages.forEach((p, idx) => {
+        p.style.display = originalStyles[idx].display;
+        p.style.borderRadius = originalStyles[idx].borderRadius;
+        p.style.border = originalStyles[idx].border;
+        p.style.boxShadow = originalStyles[idx].boxShadow;
+        p.style.marginBottom = originalStyles[idx].marginBottom;
+    });
+}
