@@ -516,10 +516,22 @@ function populateReportDropdown() {
 
     select.innerHTML = '<option value="">— Pilih Anggota —</option>' +
         MEMBERS_DATA.map(m => `<option value="${m.id}">${m.name} (${m.dept_name})</option>`).join('');
+
+    // Initialize cover with empty placeholders
+    updateReportCover("");
 }
 
 function updateReportCover(memberId) {
-    if (!memberId) return;
+    const nameEl = document.getElementById('cover-member-name');
+    const infoEl = document.getElementById('cover-member-info');
+    const deptEl = document.getElementById('cover-member-dept');
+
+    if (!memberId) {
+        if (nameEl) nameEl.textContent = '[ Nama Anggota ]';
+        if (infoEl) infoEl.textContent = '[ NRP ] - [ Posisi ]';
+        if (deptEl) deptEl.textContent = 'Departemen ...';
+        return;
+    }
 
     const member = MEMBERS_DATA.find(m => String(m.id) === String(memberId));
     if (!member) return;
@@ -529,14 +541,13 @@ function updateReportCover(memberId) {
         DEPTS_DATA.find(d => d.name === member.dept);
     const deptFullname = dept ? dept.fullname : (member.dept_name || member.dept);
 
-    // Update cover page elements
     const initialsEl = document.getElementById('cover-initials');
-    const nameEl = document.getElementById('cover-member-name');
-    const infoEl = document.getElementById('cover-member-info');
-    const deptEl = document.getElementById('cover-member-dept');
+
+    let posText = member.pos.toUpperCase();
+    posText = posText.replace("DEPARTEMEN", (member.dept_name || member.dept).toUpperCase());
 
     if (initialsEl) initialsEl.textContent = getInitials(member.name);
     if (nameEl) nameEl.textContent = member.name;
-    if (infoEl) infoEl.textContent = `${member.nrp} - ${member.pos.toUpperCase()}`;
+    if (infoEl) infoEl.textContent = `${member.nrp} - ${posText}`;
     if (deptEl) deptEl.textContent = `Departemen ${deptFullname}`;
 }
