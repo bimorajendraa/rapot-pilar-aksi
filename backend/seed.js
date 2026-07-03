@@ -176,6 +176,15 @@ const MOCK_MEMBERS = [
 async function seed() {
     let connection;
     try {
+        // Koneksi awal tanpa menentukan database untuk memastikan DB ada
+        const tempConn = await mysql.createConnection({
+            host: process.env.DB_HOST,
+            user: process.env.DB_USER,
+            password: process.env.DB_PASSWORD,
+        });
+        await tempConn.query(`CREATE DATABASE IF NOT EXISTS \`${process.env.DB_NAME}\``);
+        await tempConn.end();
+
         connection = await mysql.createConnection({
             host: process.env.DB_HOST,
             user: process.env.DB_USER,
@@ -206,6 +215,25 @@ async function seed() {
                 batch VARCHAR(10),
                 score DECIMAL(5,2) DEFAULT NULL,
                 band VARCHAR(30) DEFAULT NULL
+            )
+        `);
+
+        // 3. Buat Tabel Assessments
+        await connection.execute(`
+            CREATE TABLE IF NOT EXISTS assessments (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                member_id INT,
+                p1_1 INT, p1_2 INT, p1_3 INT, p1_4 INT,
+                p2_1 INT, p2_2 INT, p2_3 INT, p2_4 INT,
+                p3_1 INT, p3_2 INT, p3_3 INT, p3_4 INT,
+                p4_1 INT, p4_2 INT, p4_3 INT, p4_4 INT,
+                total_score DECIMAL(5,2),
+                band VARCHAR(50),
+                appreciation TEXT,
+                suggestions TEXT,
+                personal_message TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (member_id) REFERENCES members(id)
             )
         `);
 

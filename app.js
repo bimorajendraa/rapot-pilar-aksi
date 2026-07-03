@@ -127,9 +127,9 @@ function renderDeptRankings() {
 function renderMembersTable(filteredData = MEMBERS_DATA) {
     const tbody = document.getElementById('members-table-body');
     const countEl = document.getElementById('members-count');
-    
+
     if (countEl) countEl.textContent = `${filteredData.length} anggota`;
-    
+
     if (filteredData.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:24px;">Data tidak ditemukan</td></tr>`;
         return;
@@ -240,18 +240,18 @@ async function submitAssessment() {
             body: JSON.stringify({ memberId, score, band, ratings, notes })
         });
         const data = await res.json();
-        
+
         if (!res.ok) throw new Error(data.error);
-        
+
         alert(data.message);
-        
+
         // Reset form
         document.querySelectorAll('.rating-btn.selected').forEach(b => b.classList.remove('selected'));
         document.getElementById('total-score-live').textContent = '0';
         document.getElementById('assessment-appreciation').value = '';
         document.getElementById('assessment-suggestions').value = '';
         document.getElementById('assessment-message').value = '';
-        
+
         await refreshData();
         showPage('dashboard', document.querySelectorAll('.nav-item')[0]);
     } catch (err) {
@@ -273,21 +273,21 @@ function calcTotalScore() {
         liveEl.textContent = `${selected.length}/16 diisi`;
         return;
     }
-    
+
     const ratings = Array.from(selected).map(b => parseInt(b.textContent));
-    
+
     // Pilar 1: 4 indikator (bobot 22%)
     const p1Sum = ratings.slice(0, 4).reduce((a, b) => a + b, 0);
     const p1Score = (p1Sum / 16) * 22;
-    
+
     // Pilar 2: 4 indikator (bobot 25%)
     const p2Sum = ratings.slice(4, 8).reduce((a, b) => a + b, 0);
     const p2Score = (p2Sum / 16) * 25;
-    
+
     // Pilar 3: 4 indikator (bobot 23%)
     const p3Sum = ratings.slice(8, 12).reduce((a, b) => a + b, 0);
     const p3Score = (p3Sum / 16) * 23;
-    
+
     // Pilar 4: 4 indikator (bobot 30%)
     const p4Sum = ratings.slice(12, 16).reduce((a, b) => a + b, 0);
     const p4Score = (p4Sum / 16) * 30;
@@ -503,6 +503,40 @@ function populateMemberDropdown() {
     const select = document.getElementById('assessment-member-select');
     if (!select) return;
 
-    select.innerHTML = '<option value="">Pilih Anggota...</option>' + 
+    select.innerHTML = '<option value="">Pilih Anggota...</option>' +
         MEMBERS_DATA.map(m => `<option value="${m.id}">${m.name} (${m.dept_name})</option>`).join('');
+
+    // Also populate report preview dropdown
+    populateReportDropdown();
+}
+
+function populateReportDropdown() {
+    const select = document.getElementById('report-member-select');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">— Pilih Anggota —</option>' +
+        MEMBERS_DATA.map(m => `<option value="${m.id}">${m.name} (${m.dept_name})</option>`).join('');
+}
+
+function updateReportCover(memberId) {
+    if (!memberId) return;
+
+    const member = MEMBERS_DATA.find(m => String(m.id) === String(memberId));
+    if (!member) return;
+
+    // Find department full name
+    const dept = DEPTS_DATA.find(d => d.name === member.dept_name) ||
+        DEPTS_DATA.find(d => d.name === member.dept);
+    const deptFullname = dept ? dept.fullname : (member.dept_name || member.dept);
+
+    // Update cover page elements
+    const initialsEl = document.getElementById('cover-initials');
+    const nameEl = document.getElementById('cover-member-name');
+    const infoEl = document.getElementById('cover-member-info');
+    const deptEl = document.getElementById('cover-member-dept');
+
+    if (initialsEl) initialsEl.textContent = getInitials(member.name);
+    if (nameEl) nameEl.textContent = member.name;
+    if (infoEl) infoEl.textContent = `${member.nrp} - ${member.pos.toUpperCase()}`;
+    if (deptEl) deptEl.textContent = `Departemen ${deptFullname}`;
 }

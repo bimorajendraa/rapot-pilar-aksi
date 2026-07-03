@@ -915,66 +915,71 @@ body {
 
 /* Page: Cover */
 .cover-page {
-    background: var(--blue-900);
+    background: #ffffff;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 60px 48px;
+    justify-content: flex-start;
+    padding: 0;
     text-align: center;
     position: relative;
+    overflow: hidden;
 }
 
-.cover-pattern {
-    position: absolute;
-    inset: 0;
-    background-image: radial-gradient(circle at 20% 20%, rgba(30, 86, 160, .3) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(232, 184, 32, .15) 0%, transparent 40%);
+.cover-image-wrapper {
+    width: 100%;
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.cover-content {
-    position: relative;
-    z-index: 2;
+.cover-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
 }
 
-.cover-org {
-    font-size: 10px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: var(--gold-300);
-    font-weight: 600;
-    margin-bottom: 24px;
+.cover-info-section {
+    width: 100%;
+    padding: 24px 40px 28px;
+    background: linear-gradient(180deg, #f0f7ff 0%, #ffffff 100%);
+    border-top: 3px solid #42a5f5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
 }
 
-.cover-title {
+.cover-member-name {
     font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: 32px;
+    font-size: 22px;
     font-weight: 800;
-    color: white;
-    line-height: 1.15;
-    margin-bottom: 8px;
+    color: #1a3a5c;
+    margin-bottom: 2px;
 }
 
-.cover-title span {
-    color: var(--gold-400);
+.cover-member-info {
+    font-size: 14px;
+    color: #6a8caf;
+    font-weight: 500;
+    margin-bottom: 2px;
 }
 
-.cover-subtitle {
-    font-size: 13px;
-    color: rgba(255, 255, 255, .5);
-    margin-bottom: 40px;
-}
-
-.cover-divider {
-    width: 48px;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--gold-400), transparent);
-    margin: 0 auto 40px;
+.cover-member-dept {
+    font-size: 15px;
+    color: #1976d2;
+    font-weight: 600;
 }
 
 .cover-period {
     font-size: 12px;
-    color: rgba(255, 255, 255, .4);
+    color: #7a9cc6;
     letter-spacing: 1px;
+    font-weight: 500;
 }
 
 /* Page: Performance */
