@@ -23,6 +23,131 @@ function getAvatarColor(idx) {
     return AVATARCOLORS[idx % AVATARCOLORS.length];
 }
 
+function getPeriodLabel(period) {
+    return period === 'END_YEAR' ? 'End-Year 2026' : 'Mid-Year 2026';
+}
+
+// ── AUTH ───────────────────────────────────────────────────
+const TOKEN_KEY = 'rapotAuthToken';
+const USER_KEY = 'rapotAuthUser';
+let CURRENT_USER = null;
+
+function getToken() {
+    return localStorage.getItem(TOKEN_KEY);
+}
+
+function getStoredUser() {
+    try {
+        return JSON.parse(localStorage.getItem(USER_KEY) || 'null');
+    } catch (err) {
+        return null;
+    }
+}
+
+function setSession(token, user) {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    CURRENT_USER = user;
+}
+
+function clearSession() {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    CURRENT_USER = null;
+}
+
+// Wraps fetch() with the Authorization header; forces re-login on 401.
+async function authFetch(url, options = {}) {
+    const token = getToken();
+    const headers = { ...(options.headers || {}), Authorization: `Bearer ${token}` };
+    const res = await fetch(url, { ...options, headers });
+    if (res.status === 401) {
+        clearSession();
+        showLoginScreen('Sesi berakhir, silakan login kembali.');
+        throw new Error('Sesi berakhir, silakan login kembali.');
+    }
+    return res;
+}
+
+function showLoginScreen(errorMsg) {
+    const loginScreen = document.getElementById('login-screen');
+    const appShell = document.getElementById('app-shell');
+    if (loginScreen) loginScreen.style.display = 'flex';
+    if (appShell) appShell.style.display = 'none';
+
+    const errEl = document.getElementById('login-error');
+    if (errEl) {
+        if (errorMsg) {
+            errEl.textContent = errorMsg;
+            errEl.style.display = 'block';
+        } else {
+            errEl.style.display = 'none';
+        }
+    }
+}
+
+function showApp() {
+    const loginScreen = document.getElementById('login-screen');
+    const appShell = document.getElementById('app-shell');
+    if (loginScreen) loginScreen.style.display = 'none';
+    if (appShell) appShell.style.display = 'flex';
+    renderUserBadge();
+}
+
+function renderUserBadge() {
+    if (!CURRENT_USER) return;
+    const isAdmin = CURRENT_USER.role === 'EB';
+    const roleLabel = isAdmin ? 'Super Admin (EB)' : `${CURRENT_USER.dept_name || '-'} Department`;
+    const initials = isAdmin ? 'EB' : (CURRENT_USER.dept_name || '??').slice(0, 2).toUpperCase();
+
+    const avatarEl = document.getElementById('sidebar-user-avatar');
+    const nameEl = document.getElementById('sidebar-user-name');
+    const roleEl = document.getElementById('sidebar-user-role');
+    const badgeEl = document.getElementById('topbar-user-badge');
+
+    if (avatarEl) avatarEl.textContent = initials;
+    if (nameEl) nameEl.textContent = CURRENT_USER.username;
+    if (roleEl) roleEl.textContent = roleLabel;
+    if (badgeEl) badgeEl.innerHTML = `<i class="fas fa-user-circle"></i> ${roleLabel}`;
+}
+
+async function login(username, password) {
+    const res = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Login gagal.');
+    setSession(data.token, data.user);
+}
+
+function logout() {
+    clearSession();
+    showLoginScreen();
+}
+
+async function checkAuthOnLoad() {
+    const token = getToken();
+    const storedUser = getStoredUser();
+    if (!token || !storedUser) {
+        showLoginScreen();
+        return false;
+    }
+    try {
+        const res = await authFetch(`${API_URL}/auth/me`);
+        if (!res.ok) throw new Error('invalid session');
+        const data = await res.json();
+        CURRENT_USER = data.user;
+        showApp();
+        return true;
+    } catch (err) {
+        clearSession();
+        showLoginScreen();
+        return false;
+    }
+}
+
 // ── NAVIGATION ───────────────────────────────────────────────
 function showPage(pageId, el) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -40,7 +165,7 @@ function showPage(pageId, el) {
         settings: 'Settings',
     };
     document.getElementById('topbar-title').textContent = titles[pageId] || pageId;
-    if (pageId === 'analytics') initAnalyticsCharts();
+    if (pageId === 'analytics') updateAnalyticsCharts();
 }
 
 function showReportPage(idx, btn) {
@@ -68,7 +193,7 @@ function renderTopPerformers() {
     const sorted = withScore.sort((a, b) => b.score - a.score).slice(0, 10);
 
     if (sorted.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px;">Belum ada data assessment</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px;">Belum ada data assessment untuk periode ini</td></tr>`;
         return;
     }
 
@@ -100,9 +225,16 @@ function renderDeptRankings() {
         }
     });
 
+    // Non-EB accounts only ever see their own department — a "ranking"
+    // across a single department isn't meaningful, so show a note instead.
+    if (CURRENT_USER && CURRENT_USER.role !== 'EB') {
+        el.innerHTML = `<div style="text-align:center;color:var(--text-muted);font-size:12px;padding:16px;">Department rankings hanya tersedia untuk akun EB.</div>`;
+        return;
+    }
+
     const depts = DEPTS_DATA.map(d => ({
         ...d,
-        computedAvg: deptAvgs[d.name].count > 0
+        computedAvg: deptAvgs[d.name] && deptAvgs[d.name].count > 0
             ? +(deptAvgs[d.name].sum / deptAvgs[d.name].count).toFixed(1)
             : null,
     }));
@@ -130,7 +262,7 @@ function renderMembersTable(filteredData = MEMBERS_DATA) {
     if (countEl) countEl.textContent = `${filteredData.length} anggota`;
 
     if (filteredData.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:24px;">Data tidak ditemukan</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:24px;">Belum ada data anggota</td></tr>`;
         return;
     }
 
@@ -154,7 +286,7 @@ function renderMembersTable(filteredData = MEMBERS_DATA) {
             </td>
             <td>
                 <div style="display:flex;gap:6px;justify-content:center;">
-                    <button class="topbar-action btn-outline" style="padding:4px 10px;font-size:11px;"><i class="fas fa-edit"></i></button>
+                    <button class="topbar-action btn-outline" disabled title="Belum tersedia" style="padding:4px 10px;font-size:11px;"><i class="fas fa-edit"></i></button>
                     <button class="topbar-action btn-outline" style="padding:4px 10px;font-size:11px;"
                         onclick="showPage('report-preview', document.querySelectorAll('.nav-item')[4])">
                         <i class="fas fa-file-pdf"></i>
@@ -163,6 +295,13 @@ function renderMembersTable(filteredData = MEMBERS_DATA) {
             </td>
         </tr>
     `).join('');
+}
+
+function showLoadingRows() {
+    const tbody = document.getElementById('members-table-body');
+    const topTbody = document.getElementById('top-performers-table');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:24px;"><i class="fas fa-spinner fa-spin"></i> Memuat data...</td></tr>`;
+    if (topTbody) topTbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px;"><i class="fas fa-spinner fa-spin"></i> Memuat data...</td></tr>`;
 }
 
 function handleFilters() {
@@ -205,7 +344,7 @@ function updateMemberCount() {
         const avg = (sum / membersWithScore.length).toFixed(1);
         if (statValGold) statValGold.textContent = avg;
         if (statChangeGold) {
-            statChangeGold.textContent = 'Berdasarkan assessment';
+            statChangeGold.textContent = `Berdasarkan assessment ${getPeriodLabel(CURRENT_PERIOD)}`;
             statChangeGold.className = 'stat-change positive';
         }
     } else {
@@ -219,7 +358,9 @@ function updateMemberCount() {
 
 function renderDeptCards() {
     const grid = document.getElementById('dept-cards-grid');
-    grid.innerHTML = DEPTS_DATA.map(d => `
+    grid.innerHTML = DEPTS_DATA.map(d => {
+        const memberCount = MEMBERS_DATA.filter(m => m.dept_name === d.name).length;
+        return `
         <div class="dept-card">
             <div class="dept-icon-wrap">
                 <img src="Logo Departemen/${d.name}.png" alt="${d.name}" style="width:26px;height:26px;object-fit:contain;">
@@ -228,64 +369,12 @@ function renderDeptCards() {
                 <div style="font-size:13px;font-weight:700;color:var(--text-primary);">${d.name}</div>
                 <div style="font-size:11px;color:var(--text-muted);">${d.fullname}</div>
                 <div style="display:flex;gap:12px;margin-top:8px;">
-                    <span style="font-size:11px;color:var(--text-secondary);"><b style="color:var(--text-primary)">—</b> anggota</span>
+                    <span style="font-size:11px;color:var(--text-secondary);"><b style="color:var(--text-primary)">${memberCount}</b> anggota</span>
                 </div>
             </div>
         </div>
-    `).join('');
-}
-
-async function submitAssessment() {
-    const memberId = document.getElementById('assessment-member-select').value;
-    const scoreText = document.getElementById('total-score-live').textContent;
-    const score = parseFloat(scoreText);
-
-    const selectedBtns = document.querySelectorAll('.rating-btn.selected');
-    if (!memberId || isNaN(score) || selectedBtns.length < 16) {
-        alert('Harap pilih anggota dan isi semua 16 penilaian!');
-        return;
-    }
-
-    const ratings = Array.from(selectedBtns).map(b => parseInt(b.textContent));
-
-    const notes = {
-        appreciation: document.getElementById('assessment-appreciation').value,
-        suggestions: document.getElementById('assessment-suggestions').value,
-        message: document.getElementById('assessment-message').value
-    };
-
-    let band = 'Good';
-    if (score >= 95) band = 'Outstanding';
-    else if (score >= 85) band = 'Excellent';
-    else if (score >= 75) band = 'Very Good';
-    else if (score >= 65) band = 'Good';
-    else if (score >= 50) band = 'Fair';
-    else band = 'Needs Improvement';
-
-    try {
-        const res = await fetch(`${API_URL}/assessments`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ memberId, score, band, ratings, notes })
-        });
-        const data = await res.json();
-
-        if (!res.ok) throw new Error(data.error);
-
-        alert(data.message);
-
-        // Reset form
-        document.querySelectorAll('.rating-btn.selected').forEach(b => b.classList.remove('selected'));
-        document.getElementById('total-score-live').textContent = '0';
-        document.getElementById('assessment-appreciation').value = '';
-        document.getElementById('assessment-suggestions').value = '';
-        document.getElementById('assessment-message').value = '';
-
-        await refreshData();
-        showPage('dashboard', document.querySelectorAll('.nav-item')[0]);
-    } catch (err) {
-        alert('Gagal menyimpan raport: ' + err.message);
-    }
+    `;
+    }).join('');
 }
 
 // ── ASSESSMENT ───────────────────────────────────────────────
@@ -293,11 +382,14 @@ function selectRating(btn, val) {
     const group = btn.closest('.rating-btns');
     group.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
+    calcTotalScore();
 }
 
 function calcTotalScore() {
     const selected = document.querySelectorAll('.rating-btn.selected');
     const liveEl = document.getElementById('total-score-live');
+    updateAssessmentSubmitState(selected.length);
+
     if (selected.length < 16) {
         liveEl.textContent = `${selected.length}/16 diisi`;
         return;
@@ -323,6 +415,104 @@ function calcTotalScore() {
 
     const totalScore = (p1Score + p2Score + p3Score + p4Score).toFixed(1);
     liveEl.textContent = totalScore;
+}
+
+function updateAssessmentSubmitState(selectedCount = document.querySelectorAll('.rating-btn.selected').length) {
+    const disabled = selectedCount < 16;
+    const btn1 = document.getElementById('assessment-submit-btn');
+    const btn2 = document.getElementById('assessment-submit-btn-2');
+    if (btn1) btn1.disabled = disabled;
+    if (btn2) btn2.disabled = disabled;
+}
+
+function resetAssessmentForm() {
+    document.querySelectorAll('.rating-btn.selected').forEach(b => b.classList.remove('selected'));
+    const liveEl = document.getElementById('total-score-live');
+    if (liveEl) liveEl.textContent = '0/16 diisi';
+    document.getElementById('assessment-appreciation').value = '';
+    document.getElementById('assessment-suggestions').value = '';
+    document.getElementById('assessment-message').value = '';
+    updateAssessmentSubmitState(0);
+}
+
+// Fetches the existing assessment (if any) for the selected member+period
+// and prefills the form so editing an already-submitted assessment works.
+async function loadAssessmentForm() {
+    const memberId = document.getElementById('assessment-member-select').value;
+    const periodSelect = document.getElementById('assessment-period-select');
+    const period = periodSelect ? periodSelect.value : 'MID_YEAR';
+
+    resetAssessmentForm();
+    if (!memberId) return;
+
+    try {
+        const res = await authFetch(`${API_URL}/assessments/${memberId}?period=${period}`);
+        if (!res.ok) return; // e.g. 403 out of scope — leave form empty
+        const assessment = await res.json();
+        if (!assessment) return;
+
+        const ratings = [
+            assessment.p1_1, assessment.p1_2, assessment.p1_3, assessment.p1_4,
+            assessment.p2_1, assessment.p2_2, assessment.p2_3, assessment.p2_4,
+            assessment.p3_1, assessment.p3_2, assessment.p3_3, assessment.p3_4,
+            assessment.p4_1, assessment.p4_2, assessment.p4_3, assessment.p4_4
+        ];
+
+        document.querySelectorAll('#page-assessment .rating-btns').forEach((group, i) => {
+            const val = ratings[i];
+            const btn = Array.from(group.querySelectorAll('.rating-btn')).find(b => parseInt(b.textContent) === val);
+            if (btn) btn.classList.add('selected');
+        });
+
+        document.getElementById('assessment-appreciation').value = assessment.appreciation || '';
+        document.getElementById('assessment-suggestions').value = assessment.suggestions || '';
+        document.getElementById('assessment-message').value = assessment.personal_message || '';
+
+        calcTotalScore();
+    } catch (err) {
+        console.error('Gagal memuat assessment yang sudah ada:', err);
+    }
+}
+
+async function submitAssessment() {
+    const memberId = document.getElementById('assessment-member-select').value;
+    const periodSelect = document.getElementById('assessment-period-select');
+    const period = periodSelect ? periodSelect.value : 'MID_YEAR';
+
+    const selectedBtns = document.querySelectorAll('.rating-btn.selected');
+    if (!memberId || selectedBtns.length < 16) {
+        alert('Harap pilih anggota dan isi semua 16 penilaian!');
+        return;
+    }
+
+    const ratings = Array.from(selectedBtns).map(b => parseInt(b.textContent));
+
+    const notes = {
+        appreciation: document.getElementById('assessment-appreciation').value,
+        suggestions: document.getElementById('assessment-suggestions').value,
+        message: document.getElementById('assessment-message').value
+    };
+
+    try {
+        // Score/band are computed by the backend from `ratings` — anything
+        // sent from here is informational only and never trusted server-side.
+        const res = await authFetch(`${API_URL}/assessments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ memberId, period, ratings, notes })
+        });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error);
+
+        alert(data.message);
+
+        resetAssessmentForm();
+        await refreshData();
+        showPage('dashboard', document.querySelectorAll('.nav-item')[0]);
+    } catch (err) {
+        alert('Gagal menyimpan raport: ' + err.message);
+    }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -431,37 +621,69 @@ function initRadarChart() {
     });
 }
 
-function initAnalyticsCharts() {
-    if (analyticsInit) return;
-    analyticsInit = true;
+let analyticsCharts = { radar: null, deptCompare: null, band: null };
 
-    // Avg per Pilar — Radar
-    new Chart(document.getElementById('avgRadarChart'), {
+async function updateAnalyticsCharts() {
+    const emptyEl = document.getElementById('analytics-empty');
+    const contentEl = document.getElementById('analytics-content');
+    if (!emptyEl || !contentEl) return;
+
+    let analytics;
+    try {
+        const res = await authFetch(`${API_URL}/analytics?period=${CURRENT_PERIOD}`);
+        analytics = await res.json();
+    } catch (err) {
+        console.error('Gagal memuat analytics:', err);
+        return;
+    }
+
+    const departments = analytics.departments || [];
+    const hasAnyAssessment = departments.some(d => Number(d.assessed_count) > 0);
+
+    if (!hasAnyAssessment) {
+        emptyEl.style.display = 'block';
+        contentEl.style.display = 'none';
+        return;
+    }
+    emptyEl.style.display = 'none';
+    contentEl.style.display = 'block';
+
+    // Avg per Pilar — Radar (computed from currently loaded, scoped MEMBERS_DATA average band mix isn't
+    // available per-pillar from the API, so this stays a members-level aggregate of what's on screen).
+    const scoredMembers = MEMBERS_DATA.filter(m => m.score !== null);
+    const overallAvg = scoredMembers.length
+        ? scoredMembers.reduce((a, b) => a + parseFloat(b.score), 0) / scoredMembers.length
+        : 0;
+
+    if (analyticsCharts.radar) analyticsCharts.radar.destroy();
+    analyticsCharts.radar = new Chart(document.getElementById('avgRadarChart'), {
         type: 'radar',
         data: {
             labels: ['Adaptif & Proaktif', 'Berdampak & Bernilai', 'Humanis & Kekeluargaan', 'Optimalisasi & Prof.'],
             datasets: [
-                { label: 'HMSI Avg', data: [0, 0, 0, 0], borderColor: '#1E56A0', backgroundColor: 'rgba(30,86,160,.1)', borderWidth: 2, pointRadius: 4 },
+                { label: 'Rata-rata', data: [overallAvg, overallAvg, overallAvg, overallAvg], borderColor: '#1E56A0', backgroundColor: 'rgba(30,86,160,.1)', borderWidth: 2, pointRadius: 4 },
             ]
         },
         options: {
             responsive: true,
-            scales: { r: { min: 0, grid: { color: '#F0F5FA' }, pointLabels: { font: { size: 11 } } } },
+            scales: { r: { min: 0, max: 100, grid: { color: '#F0F5FA' }, pointLabels: { font: { size: 11 } } } },
             plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } },
         },
     });
 
-    // Dept Compare — Bar
-    const sorted = [...MOCK_DEPTS].sort((a, b) => (b.avg || 0) - (a.avg || 0));
-    new Chart(document.getElementById('deptCompareChart'), {
+    // Dept Compare — Bar (real data from /api/analytics; hidden entirely for DEPT accounts
+    // via the department list already being scoped to just their own department server-side)
+    const sortedDepts = [...departments].sort((a, b) => (b.avg_score || 0) - (a.avg_score || 0));
+    if (analyticsCharts.deptCompare) analyticsCharts.deptCompare.destroy();
+    analyticsCharts.deptCompare = new Chart(document.getElementById('deptCompareChart'), {
         type: 'bar',
         data: {
-            labels: sorted.map(d => d.name),
+            labels: sortedDepts.map(d => d.name),
             datasets: [{
                 label: 'Dept Average',
-                data: sorted.map(d => d.avg || 0),
-                backgroundColor: sorted.map(d => d.color + '40'),
-                borderColor: sorted.map(d => d.color),
+                data: sortedDepts.map(d => d.avg_score ? +parseFloat(d.avg_score).toFixed(1) : 0),
+                backgroundColor: sortedDepts.map(d => (d.color || '#1E56A0') + '40'),
+                borderColor: sortedDepts.map(d => d.color || '#1E56A0'),
                 borderWidth: 1.5, borderRadius: 6,
             }]
         },
@@ -475,14 +697,20 @@ function initAnalyticsCharts() {
         },
     });
 
-    // Band Distribution
-    new Chart(document.getElementById('bandChart'), {
+    // Band Distribution — real data from /api/analytics
+    const bandOrder = ['Outstanding', 'Excellent', 'Very Good', 'Good', 'Fair', 'Needs Improvement'];
+    const bandCounts = bandOrder.map(band => {
+        const row = (analytics.bandDistribution || []).find(b => b.band === band);
+        return row ? Number(row.count) : 0;
+    });
+    if (analyticsCharts.band) analyticsCharts.band.destroy();
+    analyticsCharts.band = new Chart(document.getElementById('bandChart'), {
         type: 'bar',
         data: {
-            labels: ['Outstanding', 'Excellent', 'Very Good', 'Good', 'Fair', 'Needs Improv.'],
+            labels: bandOrder,
             datasets: [{
                 label: 'Members',
-                data: [0, 0, 0, 0, 0, 0],
+                data: bandCounts,
                 backgroundColor: ['#FDF3C8', '#DBE9F8', '#F0FDF4', '#F5F3FF', '#FFF7ED', '#FEF2F2'],
                 borderColor: ['#D4A017', '#1E56A0', '#22C55E', '#8B5CF6', '#C2410C', '#B91C1C'],
                 borderWidth: 1.5, borderRadius: 6,
@@ -497,34 +725,93 @@ function initAnalyticsCharts() {
             },
         },
     });
+
+    analyticsInit = true;
 }
 
 // ── CONFIG ──────────────────────────────────────────────────
 const API_URL = '/api';
 let MEMBERS_DATA = [];
 let DEPTS_DATA = [];
+let CURRENT_PERIOD = 'MID_YEAR';
 
 // ── INIT ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+            const btn = document.getElementById('login-submit-btn');
+            if (btn) btn.disabled = true;
+            try {
+                await login(username, password);
+                showApp();
+                await initAppData();
+            } catch (err) {
+                showLoginScreen(err.message);
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        });
+    }
+
+    const authed = await checkAuthOnLoad();
+    if (authed) {
+        await initAppData();
+    }
+});
+
+async function initAppData() {
+    const globalPeriodSelect = document.getElementById('global-period-select');
+    if (globalPeriodSelect) {
+        globalPeriodSelect.value = CURRENT_PERIOD;
+        globalPeriodSelect.addEventListener('change', async () => {
+            CURRENT_PERIOD = globalPeriodSelect.value;
+            analyticsInit = false;
+            await refreshData();
+            if (document.getElementById('page-analytics').classList.contains('active')) {
+                updateAnalyticsCharts();
+            }
+        });
+    }
+
     await refreshData();
-    renderDeptCards();
     setTimeout(initDashboardCharts, 100);
 
-    // Event listeners for filters
+    // Filters (Members page)
     const filterDept = document.getElementById('filter-dept');
     const filterBatch = document.getElementById('filter-batch');
     const filterBand = document.getElementById('filter-band');
-
     if (filterDept) filterDept.addEventListener('change', handleFilters);
     if (filterBatch) filterBatch.addEventListener('change', handleFilters);
     if (filterBand) filterBand.addEventListener('change', handleFilters);
-});
+
+    // Assessment form: reset + prefill whenever member or period changes
+    const assessmentMemberSelect = document.getElementById('assessment-member-select');
+    const assessmentPeriodSelect = document.getElementById('assessment-period-select');
+    if (assessmentMemberSelect) assessmentMemberSelect.addEventListener('change', loadAssessmentForm);
+    if (assessmentPeriodSelect) assessmentPeriodSelect.addEventListener('change', loadAssessmentForm);
+    updateAssessmentSubmitState(0);
+
+    // Report card: re-render whenever period changes (member change already
+    // triggers updateReportCover via its own onchange in index.html)
+    const reportPeriodSelect = document.getElementById('report-period-select');
+    if (reportPeriodSelect) {
+        reportPeriodSelect.addEventListener('change', () => {
+            const memberSelect = document.getElementById('report-member-select');
+            updateReportCover(memberSelect ? memberSelect.value : '');
+        });
+    }
+}
 
 async function refreshData() {
     try {
+        showLoadingRows();
         const [mRes, dRes] = await Promise.all([
-            fetch(`${API_URL}/members`),
-            fetch(`${API_URL}/departments`)
+            authFetch(`${API_URL}/members?period=${CURRENT_PERIOD}`),
+            authFetch(`${API_URL}/departments`)
         ]);
         const rawMembers = await mRes.json();
         DEPTS_DATA = await dRes.json();
@@ -539,6 +826,7 @@ async function refreshData() {
         renderTopPerformers();
         renderDeptRankings();
         renderMembersTable();
+        renderDeptCards();
         populateMemberDropdown();
 
         if (chartsInit) {
@@ -570,8 +858,12 @@ function populateMemberDropdown() {
     const select = document.getElementById('assessment-member-select');
     if (!select) return;
 
+    const previousValue = select.value;
     select.innerHTML = '<option value="">Pilih Anggota...</option>' +
         MEMBERS_DATA.map(m => `<option value="${m.id}">${m.name} (${m.dept_name})</option>`).join('');
+    if (previousValue && MEMBERS_DATA.some(m => String(m.id) === previousValue)) {
+        select.value = previousValue;
+    }
 
     // Also populate report preview dropdown
     populateReportDropdown();
@@ -581,11 +873,17 @@ function populateReportDropdown() {
     const select = document.getElementById('report-member-select');
     if (!select) return;
 
+    const previousValue = select.value;
     select.innerHTML = '<option value="">— Pilih Anggota —</option>' +
         MEMBERS_DATA.map(m => `<option value="${m.id}">${m.name} (${m.dept_name})</option>`).join('');
 
-    // Initialize cover with empty placeholders
-    updateReportCover("");
+    if (previousValue && MEMBERS_DATA.some(m => String(m.id) === previousValue)) {
+        select.value = previousValue;
+        updateReportCover(previousValue);
+    } else {
+        // Initialize cover with empty placeholders
+        updateReportCover("");
+    }
 }
 
 function updateReportCover(memberId) {
@@ -597,6 +895,8 @@ function updateReportCover(memberId) {
         if (nameEl) nameEl.textContent = '[ Nama Anggota ]';
         if (infoEl) infoEl.textContent = '[ NRP ] - [ Posisi ]';
         if (deptEl) deptEl.textContent = 'Departemen ...';
+        const perfInfo = document.getElementById('perf-info-section');
+        if (perfInfo) perfInfo.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:60px 20px;">Belum memilih anggota</div>';
         return;
     }
 
@@ -622,6 +922,16 @@ function updateReportCover(memberId) {
     updateReportPerformance(memberId, member, posText, deptFullname);
 }
 
+function getReportPeriod() {
+    const sel = document.getElementById('report-period-select');
+    return sel ? sel.value : 'MID_YEAR';
+}
+
+// Guards against a stale response overwriting a newer one when the user
+// switches member/period quickly (each call gets an incrementing token;
+// only the most recent call is allowed to render).
+let reportRequestToken = 0;
+
 async function updateReportPerformance(memberId, member, posText, deptFullname) {
     const perfInfo = document.getElementById('perf-info-section');
     if (!perfInfo) return;
@@ -631,9 +941,14 @@ async function updateReportPerformance(memberId, member, posText, deptFullname) 
         return;
     }
 
+    const period = getReportPeriod();
+    const requestId = ++reportRequestToken;
+
     try {
-        const res = await fetch(`${API_URL}/assessments/${memberId}`);
-        const assessment = await res.json();
+        const res = await authFetch(`${API_URL}/assessments/${memberId}?period=${period}`);
+        const assessment = res.ok ? await res.json() : null;
+
+        if (requestId !== reportRequestToken) return; // superseded by a newer request
 
         let p1Score = 0, p2Score = 0, p3Score = 0, p4Score = 0;
         let totalScore = 0;
@@ -667,9 +982,27 @@ async function updateReportPerformance(memberId, member, posText, deptFullname) 
             deptAvg = (sum / scoredDeptMembers.length).toFixed(1);
         }
 
+        if (!assessment) {
+            perfInfo.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:60px 20px;">Belum ada assessment untuk ${getPeriodLabel(period)}</div>`;
+            document.getElementById('fb-appreciation').innerHTML = '-';
+            document.getElementById('fb-suggestions').innerHTML = '-';
+            document.getElementById('fb-message').innerHTML = '-';
+            const closeScore = document.getElementById('close-final-score');
+            const closeBand = document.getElementById('close-performance-band');
+            const closeRank = document.getElementById('close-cabinet-rank');
+            if (closeScore) closeScore.textContent = '-';
+            if (closeBand) closeBand.textContent = '-';
+            if (closeRank) closeRank.textContent = '-';
+            if (window.perfRadarChartInstance) {
+                window.perfRadarChartInstance.destroy();
+                window.perfRadarChartInstance = null;
+            }
+            return;
+        }
+
         perfInfo.innerHTML = `
             <div style="display:flex; flex-direction:column; width:100%; height:100%; box-sizing:border-box; transform: scale(0.9); transform-origin: top center;">
-                
+
                 <!-- Top Banner -->
                 <div style="background: linear-gradient(135deg, #3b60e4, #92d9ec); border-radius:16px; padding:30px 40px; display:flex; align-items:center; margin-bottom:30px;">
                     <div style="width:90px; height:90px; border-radius:50%; background:#d1d5db; display:flex; align-items:center; justify-content:center; overflow:hidden; box-shadow: 0 0 0 3px rgba(255,255,255,0.3); margin-right:24px; flex-shrink:0;">
@@ -691,7 +1024,7 @@ async function updateReportPerformance(memberId, member, posText, deptFullname) 
                             Assessment Period
                         </div>
                         <div style="font-size:16px; font-weight:700; color:white;">
-                            JULY 2026
+                            ${getPeriodLabel(period).toUpperCase()}
                         </div>
                     </div>
                 </div>
@@ -793,6 +1126,8 @@ async function updateReportPerformance(memberId, member, posText, deptFullname) 
         document.getElementById('fb-message').innerHTML = assessment?.personal_message || '-';
 
         setTimeout(() => {
+            if (requestId !== reportRequestToken) return; // a newer member/period was selected meanwhile
+
             const canvas = document.getElementById('perfRadarChart');
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
@@ -868,7 +1203,7 @@ async function updateReportPerformance(memberId, member, posText, deptFullname) 
         }
 
     } catch (err) {
-        console.error("Error fetching assessment", err);
+        if (requestId === reportRequestToken) console.error("Error fetching assessment", err);
     }
 }
 

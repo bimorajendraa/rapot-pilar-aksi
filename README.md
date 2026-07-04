@@ -119,22 +119,82 @@ Lihat [DEPLOYMENT.md](DEPLOYMENT.md) bagian Aiven.
 
 ## Endpoint API
 
-| Method | Endpoint | Fungsi |
-|---|---|---|
-| GET | `/api/health` | Cek API hidup — `{ "message": "Rapot Pilar Aksi API is running" }` |
-| GET | `/api/members` | Ambil semua anggota |
-| GET | `/api/departments` | Ambil semua departemen |
-| GET | `/api/assessments/:memberId` | Ambil assessment terakhir milik satu anggota |
-| POST | `/api/assessments` | Simpan assessment (update score/band member + insert detail) |
+Semua endpoint (kecuali `/api/health` dan `/api/auth/login`) memerlukan header:
+`Authorization: Bearer <token>` (didapat dari `/api/auth/login`).
 
-Struktur request/response mengikuti implementasi lama — tidak diubah.
+| Method | Endpoint | Fungsi | Auth |
+|---|---|---|---|
+| GET | `/api/health` | Cek API hidup | Publik |
+| POST | `/api/auth/login` | Login, mengembalikan JWT | Publik |
+| GET | `/api/auth/me` | Info akun yang sedang login | Wajib |
+| GET | `/api/members?period=MID_YEAR` | Ambil anggota (scoped by role), score/band sesuai periode | Wajib |
+| GET | `/api/departments` | Ambil semua departemen (metadata, tidak scoped) | Wajib |
+| GET | `/api/analytics?period=MID_YEAR` | Rata-rata per departemen + distribusi band (scoped by role) | Wajib |
+| GET | `/api/assessments/:memberId?period=MID_YEAR` | Ambil assessment 1 anggota untuk 1 periode | Wajib + scope |
+| POST | `/api/assessments` | Upsert assessment (`memberId`, `period`, `ratings[16]`, `notes`) | Wajib + scope |
+
+`period` bernilai `MID_YEAR` atau `END_YEAR` (default `MID_YEAR` bila tidak dikirim).
+
+Role `DEPT` yang mencoba mengakses `memberId` di luar departemennya (lewat URL/API langsung) akan mendapat `403`, bukan hanya disembunyikan di UI.
+
+## Role & Akses
+
+- **EB** (super admin): melihat & menilai seluruh anggota semua departemen, dashboard dan analytics seluruh kabinet.
+- **DEPT** (`hrd`, `ia`, `swf`, `rta`, `im`, `ea`, `es`, `socdev`, `manage`): hanya melihat & menilai anggota departemennya sendiri. Difilter di backend (SQL `WHERE`), bukan hanya disembunyikan di frontend.
+
+## Periode Assessment
+
+Sistem mendukung 2 periode penilaian per tahun kabinet:
+
+- `MID_YEAR` — ditampilkan sebagai "Mid-Year 2026"
+- `END_YEAR` — ditampilkan sebagai "End-Year 2026"
+
+Satu anggota maksimal punya **satu** assessment per periode (`UNIQUE (member_id, assessment_period)` di database). Submit ulang untuk member + periode yang sama akan **mengedit** row yang sudah ada, bukan membuat duplikat.
+
+## Menjalankan Migration
+
+Sebelum fitur login/periode bisa dipakai, jalankan migration terhadap database (disarankan backup/export dulu, karena migration ini menghapus baris assessment duplikat lama):
+
+```bash
+mysql -h <DB_HOST> -u <DB_USER> -p <DB_NAME> < migrations/20260704_auth_period_assessments.sql
+```
+
+Migration ini akan:
+1. Menambah kolom `assessment_period` (default `MID_YEAR` untuk data lama) dan `updated_at`.
+2. Menghitung ulang `total_score`/`band` untuk assessment lama yang tersimpan 0 (bug lama, lihat bagian Troubleshooting).
+3. Menghapus duplikat assessment lama (member + periode sama), menyisakan yang terbaru.
+4. Menambah unique constraint `(member_id, assessment_period)`.
+5. Membuat tabel `users` untuk login.
+
+## Membuat Akun Login
+
+Setelah migration, isi `JWT_SECRET`, `DEFAULT_EB_PASSWORD`, dan `DEFAULT_DEPT_PASSWORD` di `.env`, lalu:
+
+```bash
+npm run seed:users
+```
+
+Ini membuat 10 akun: `eb` (role `EB`, password `DEFAULT_EB_PASSWORD`) dan `hrd`/`ia`/`swf`/`rta`/`im`/`ea`/`es`/`socdev`/`manage` (role `DEPT`, password `DEFAULT_DEPT_PASSWORD`). Aman dijalankan berkali-kali — meng-upsert berdasarkan `username`, tidak menyentuh tabel `members`/`departments`/`assessments`. Menjalankan ulang dengan password default yang berbeda akan menimpa hash password akun-akun tersebut.
+
+## Login sebagai EB vs Departemen
+
+Buka aplikasi → layar login akan tampil sebelum dashboard. Login dengan salah satu username di atas + passwordnya:
+- Login sebagai `eb` → melihat seluruh data kabinet, semua departemen bisa diakses.
+- Login sebagai mis. `hrd` → hanya melihat anggota, assessment, dan dashboard departemen HRD saja.
+
+Token disimpan di `localStorage`; tombol logout ada di footer sidebar (ikon sign-out).
+
+## Endpoint API (lama)
+
+Struktur request/response endpoint assessment mengikuti implementasi lama (16 indikator, formula, band) — **tidak diubah**, hanya ditambah scoping dan periode.
 
 ## Troubleshooting
 
 - **Fetch ke `/api/...` gagal / CORS error di lokal**: pastikan buka lewat `http://localhost:3000` (dari `npm run dev`), bukan lewat `file://` atau Live Server terpisah, karena frontend & API harus satu origin agar path relatif `/api` bekerja.
 - **Error koneksi database di Vercel**: cek Environment Variables sudah lengkap, dan `DB_SSL=true` + `DB_CA_CERT` terisi benar untuk Aiven.
 - **`DB_CA_CERT` tidak terbaca / error SSL handshake**: pastikan isi certificate disalin utuh; kode sudah menangani newline literal `\n` lewat `.replace(/\\n/g, '\n')`.
-- **Data hilang setelah deploy**: jangan jalankan `npm run seed` ulang di database production yang sudah ada data asli.
+- **Data hilang setelah deploy**: jangan jalankan `npm run seed` ulang di database production yang sudah ada data asli. `npm run seed:users` **aman** dijalankan di production (tidak menyentuh members/departments/assessments), tapi `npm run seed` (yang lama) tetap **tidak boleh**.
+- **Assessment tersimpan dengan score 0**: bug lama disebabkan frontend mengirim skor dari tampilan tanpa dihitung ulang di backend. Sekarang backend selalu menghitung ulang `total_score`/`band` dari 16 rating yang dikirim (`lib/scoring.js`), skor/band dari frontend tidak pernah dipakai langsung. Data lama yang sudah 0 diperbaiki oleh migration di atas.
 
 ## Catatan Keamanan
 

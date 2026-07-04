@@ -5,12 +5,15 @@
   "description": "HMSI PILAR AKSI — Performance Report System (Vercel + Aiven MySQL)",
   "scripts": {
     "seed": "node seed.js",
+    "seed:users": "node scripts/seed-users.js",
     "dev": "node local-server.js"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.22.5"
   }
 }

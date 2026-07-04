@@ -341,6 +341,12 @@ body {
     background: var(--surface);
 }
 
+.topbar-action:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 .page-content {
     padding: 28px;
     flex: 1;
@@ -1210,4 +1216,98 @@ body {
 
 .mt-20 {
     margin-top: 20px;
+}
+
+/* ── APP SHELL / LOGIN ─────────────────────────────────────── */
+#app-shell {
+    display: flex;
+    width: 100%;
+    min-height: 100vh;
+}
+
+.login-screen {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--blue-900), var(--blue-600));
+    padding: 20px;
+}
+
+.login-card {
+    background: white;
+    border-radius: 16px;
+    padding: 36px 32px;
+    width: 100%;
+    max-width: 360px;
+    box-shadow: 0 20px 50px rgba(10, 22, 40, .35);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.login-logo {
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
+    margin-bottom: 10px;
+}
+
+.login-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 800;
+    font-size: 16px;
+    color: var(--text-primary);
+}
+
+.login-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 22px;
+}
+
+.login-field {
+    width: 100%;
+    margin-bottom: 14px;
+    text-align: left;
+}
+
+.login-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.login-field input {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    outline: none;
+    font-family: inherit;
+}
+
+.login-field input:focus {
+    border-color: var(--blue-400);
+}
+
+.login-error {
+    width: 100%;
+    background: #FEF2F2;
+    color: #B91C1C;
+    border: 1px solid #FCA5A5;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    margin-bottom: 14px;
+}
+
+.login-submit {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 14px;
 }
