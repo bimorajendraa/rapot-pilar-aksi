@@ -62,7 +62,9 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // ── Everything below requires a valid token ────────────
-app.use(requireAuth);
+// Scoped to /api only — local-server.js mounts static file serving on this
+// same Express app for local dev, and that must stay unauthenticated too.
+app.use('/api', requireAuth);
 
 // ── GET: Info akun yang sedang login ───────────────────
 app.get('/api/auth/me', (req, res) => {
