@@ -500,7 +500,7 @@ function initAnalyticsCharts() {
 }
 
 // ── CONFIG ──────────────────────────────────────────────────
-const API_URL = 'http://localhost:5000/api';
+const API_URL = '/api';
 let MEMBERS_DATA = [];
 let DEPTS_DATA = [];
 
