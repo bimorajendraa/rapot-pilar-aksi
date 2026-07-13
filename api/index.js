@@ -101,6 +101,30 @@ app.get('/api/members', async (req, res) => {
     }
 });
 
+// ── GET: Ranking organisasi (semua departemen digabung, untuk Cabinet Rank) ──
+// Sengaja tidak di-scope per departemen — cabinet rank harus dihitung dari
+// seluruh anggota kabinet, bukan hanya departemen milik user yang login.
+// Hanya id + score yang dikembalikan (bukan roster lengkap) untuk menjaga
+// privasi anggota departemen lain sambil tetap memungkinkan perhitungan rank.
+app.get('/api/rankings', async (req, res) => {
+    try {
+        const period = normalizePeriod(req.query.period);
+        const pool = getPool();
+
+        const [rows] = await pool.query(
+            `SELECT m.id, a.total_score AS score
+             FROM members m
+             JOIN assessments a ON a.member_id = m.id AND a.assessment_period = ?
+             ORDER BY a.total_score DESC`,
+            [period]
+        );
+        res.json(rows);
+    } catch (err) {
+        console.error('API ERROR:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ── GET: Ambil Semua Departemen ────────────────────────
 app.get('/api/departments', async (req, res) => {
     try {

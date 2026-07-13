@@ -286,15 +286,39 @@ function renderMembersTable(filteredData = MEMBERS_DATA) {
             </td>
             <td>
                 <div style="display:flex;gap:6px;justify-content:center;">
-                    <button class="topbar-action btn-outline" disabled title="Belum tersedia" style="padding:4px 10px;font-size:11px;"><i class="fas fa-edit"></i></button>
-                    <button class="topbar-action btn-outline" style="padding:4px 10px;font-size:11px;"
-                        onclick="showPage('report-preview', document.querySelectorAll('.nav-item')[4])">
+                    <button class="topbar-action btn-outline" title="Isi Assessment" style="padding:4px 10px;font-size:11px;"
+                        onclick="goToMemberAssessment('${m.id}')">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="topbar-action btn-outline" title="Lihat Rapot" style="padding:4px 10px;font-size:11px;"
+                        onclick="goToMemberReport('${m.id}')">
                         <i class="fas fa-file-pdf"></i>
                     </button>
                 </div>
             </td>
         </tr>
     `).join('');
+}
+
+// Row actions on the Functional Members table: PDF icon opens that member's
+// report card, edit icon opens that member's assessment input — both must
+// select the clicked row's member, not whatever was previously selected.
+function goToMemberAssessment(memberId) {
+    const select = document.getElementById('assessment-member-select');
+    if (select) {
+        select.value = memberId;
+        loadAssessmentForm();
+    }
+    showPage('assessment', document.querySelectorAll('.nav-item')[3]);
+}
+
+function goToMemberReport(memberId) {
+    const select = document.getElementById('report-member-select');
+    if (select) {
+        select.value = memberId;
+        updateReportCover(memberId);
+    }
+    showPage('report-preview', document.querySelectorAll('.nav-item')[4]);
 }
 
 function showLoadingRows() {
@@ -944,9 +968,34 @@ async function updateReportPerformance(memberId, member, posText, deptFullname) 
     const period = getReportPeriod();
     const requestId = ++reportRequestToken;
 
+    // Clear stale content immediately so switching members never leaves the
+    // previous member's performance page/chart/feedback on screen while the
+    // new data is in flight (or if the fetch below fails).
+    perfInfo.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:60px 20px;"><i class="fas fa-spinner fa-spin"></i> Memuat data...</div>`;
+    if (window.perfRadarChartInstance) {
+        window.perfRadarChartInstance.destroy();
+        window.perfRadarChartInstance = null;
+    }
+    const fbAppreciation = document.getElementById('fb-appreciation');
+    const fbSuggestions = document.getElementById('fb-suggestions');
+    const fbMessage = document.getElementById('fb-message');
+    if (fbAppreciation) fbAppreciation.innerHTML = '-';
+    if (fbSuggestions) fbSuggestions.innerHTML = '-';
+    if (fbMessage) fbMessage.innerHTML = '-';
+    const closeScoreEl = document.getElementById('close-final-score');
+    const closeBandEl = document.getElementById('close-performance-band');
+    const closeRankEl = document.getElementById('close-cabinet-rank');
+    if (closeScoreEl) closeScoreEl.textContent = '-';
+    if (closeBandEl) closeBandEl.textContent = '-';
+    if (closeRankEl) closeRankEl.textContent = '-';
+
     try {
-        const res = await authFetch(`${API_URL}/assessments/${memberId}?period=${period}`);
+        const [res, rankRes] = await Promise.all([
+            authFetch(`${API_URL}/assessments/${memberId}?period=${period}`),
+            authFetch(`${API_URL}/rankings?period=${period}`)
+        ]);
         const assessment = res.ok ? await res.json() : null;
+        const rankings = rankRes.ok ? await rankRes.json() : [];
 
         if (requestId !== reportRequestToken) return; // superseded by a newer request
 
@@ -962,19 +1011,18 @@ async function updateReportPerformance(memberId, member, posText, deptFullname) 
             band = assessment.band || member.band;
         }
 
-        // Calculate Rankings
-        const scoredMembers = MEMBERS_DATA.filter(m => m.score !== null).sort((a, b) => parseFloat(b.score) - parseFloat(a.score));
+        // Cabinet Rank — computed from `rankings` (org-wide, all departments
+        // combined via /api/rankings), never from the possibly dept-scoped
+        // MEMBERS_DATA, so DEPT-role accounts see their true cabinet-wide rank.
         let cabinetRank = '-';
         if (assessment) {
-            cabinetRank = scoredMembers.findIndex(m => String(m.id) === String(member.id)) + 1;
+            const idx = rankings.findIndex(r => String(r.id) === String(member.id));
+            cabinetRank = idx >= 0 ? idx + 1 : '-';
         }
+        const cabinetTotal = rankings.length;
 
         const deptMembers = MEMBERS_DATA.filter(m => m.dept_name === member.dept_name);
         const scoredDeptMembers = deptMembers.filter(m => m.score !== null && m.score !== undefined).sort((a, b) => parseFloat(b.score) - parseFloat(a.score));
-        let deptRank = '-';
-        if (assessment) {
-            deptRank = scoredDeptMembers.findIndex(m => String(m.id) === String(member.id)) + 1;
-        }
 
         let deptAvg = '-';
         if (scoredDeptMembers.length > 0) {
@@ -1102,12 +1150,8 @@ async function updateReportPerformance(memberId, member, posText, deptFullname) 
                             <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#1a3a5c;font-weight:800;margin-bottom:12px;">
                                 Ranking</div>
                             <div style="padding:8px 0; border-bottom:1px solid #e0e7ee; display:flex; justify-content:space-between; align-items:center;">
-                                <div style="font-size:11px; color:var(--text-muted); font-weight:500;">Dept. Ranking</div>
-                                <div style="color:#3b60e4; font-weight:800; font-size:13px;">#${deptRank} <span style="font-size:9px;color:var(--text-muted);font-weight:600;">/${deptMembers.length}</span></div>
-                            </div>
-                            <div style="padding:8px 0; border-bottom:1px solid #e0e7ee; display:flex; justify-content:space-between; align-items:center;">
                                 <div style="font-size:11px; color:var(--text-muted); font-weight:500;">Cabinet Ranking</div>
-                                <div style="color:#1a3a5c; font-weight:800; font-size:13px;">#${cabinetRank} <span style="font-size:9px;color:var(--text-muted);font-weight:600;">/${MEMBERS_DATA.length}</span></div>
+                                <div style="color:#1a3a5c; font-weight:800; font-size:13px;">#${cabinetRank} <span style="font-size:9px;color:var(--text-muted);font-weight:600;">/${cabinetTotal}</span></div>
                             </div>
                             <div style="padding-top:10px; display:flex; justify-content:space-between; align-items:center;">
                                 <div style="font-size:11px; color:var(--text-muted); font-weight:500;">Dept. Avg</div>
@@ -1170,6 +1214,8 @@ async function updateReportPerformance(memberId, member, posText, deptFullname) 
                     maintainAspectRatio: false,
                     scales: {
                         r: {
+                            min: 0,
+                            max: 4,
                             angleLines: { color: 'rgba(0, 0, 0, 0.05)' },
                             grid: { color: 'rgba(0, 0, 0, 0.05)' },
                             pointLabels: {
@@ -1178,8 +1224,6 @@ async function updateReportPerformance(memberId, member, posText, deptFullname) 
                             },
                             ticks: {
                                 display: false,
-                                suggestedMin: 0,
-                                suggestMax: 4,
                                 stepSize: 1
                             }
                         }
@@ -1203,7 +1247,10 @@ async function updateReportPerformance(memberId, member, posText, deptFullname) 
         }
 
     } catch (err) {
-        if (requestId === reportRequestToken) console.error("Error fetching assessment", err);
+        if (requestId === reportRequestToken) {
+            console.error("Error fetching assessment", err);
+            perfInfo.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:60px 20px;">Gagal memuat data assessment. Coba pilih ulang anggota.</div>`;
+        }
     }
 }
 
